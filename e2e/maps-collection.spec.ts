@@ -1,3 +1,4 @@
+import { functionName } from "./fixtures/server-function-name";
 import { readFile } from "node:fs/promises";
 import { mapsRecoveryCodec } from "../src/client/features/local-maps/mapsRecovery";
 import {
@@ -28,17 +29,6 @@ async function metrics(request: APIRequestContext) {
   const result = await request.get(providerUrl + "/stats");
   expect(result.ok()).toBe(true);
   return metricsSchema.parse(await result.json());
-}
-function functionName(url: string) {
-  try {
-    const segment =
-      new URL(url, "http://fixture").pathname.split("/").pop() ?? "";
-    return z
-      .object({ export: z.string() })
-      .parse(JSON.parse(Buffer.from(segment, "base64url").toString())).export;
-  } catch {
-    return null;
-  }
 }
 async function prepare(page: Page, query: string) {
   await page.goto("/");

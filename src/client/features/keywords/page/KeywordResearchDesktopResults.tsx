@@ -256,6 +256,7 @@ function DesktopTableCard({ controller }: Props) {
         sortField={controller.sortField}
         toggleSort={controller.toggleSort}
         resetFilters={controller.resetFilters}
+        selectKeyword={controller.selectKeyword}
         handleRowClick={controller.handleRowClick}
       />
       {filteredRows.length > 0 ? (
@@ -375,7 +376,10 @@ function DesktopSerpPanel({ controller }: Props) {
             keyword={controller.activeSerpKeyword}
             loading={controller.serpLoading}
             error={controller.serpError}
-            onRetry={() => void controller.serpQuery.refetch()}
+            onRetry={() => {
+              if (controller.activeSerpKeyword)
+                controller.inspectSerp(controller.activeSerpKeyword);
+            }}
             page={controller.serpPage}
             pageSize={controller.SERP_PAGE_SIZE}
             onPageChange={controller.setSerpPage}

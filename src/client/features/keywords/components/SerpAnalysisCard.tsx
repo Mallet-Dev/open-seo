@@ -202,10 +202,11 @@ function SerpAnalysisLoadingState() {
 function SerpAnalysisEmptyState({ keyword }: { keyword?: string | null }) {
   return (
     <div className="text-sm text-base-content/50 text-center py-8">
-      <p>No SERP details available for this keyword yet.</p>
-      {keyword ? (
-        <p className="mt-1">Try clicking another keyword to load data.</p>
-      ) : null}
+      <p>
+        {keyword
+          ? "No organic results were returned for this keyword."
+          : "Choose a keyword in the table to inspect its Google results."}
+      </p>
     </div>
   );
 }

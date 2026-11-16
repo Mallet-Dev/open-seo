@@ -40,6 +40,23 @@ export const researchKeywords = createServerFn({ method: "POST" })
     return KeywordResearchService.research(input, context);
   });
 
+export const getCachedKeywordResearch = createServerFn({ method: "POST" })
+  .middleware(requireProjectContext)
+  .validator(researchKeywordsSchema)
+  .handler(async ({ data, context }) => {
+    const input = {
+      ...data,
+      ...resolveMarket(data, context.project),
+      projectId: context.projectId,
+    };
+    if (shouldUseKeywordE2eFixtures()) {
+      const fixtures = await getKeywordE2eFixtures();
+      return fixtures.getKeywordResearchFixture(input);
+    }
+
+    return KeywordResearchService.getCachedResearch(input, context);
+  });
+
 export const saveKeywords = createServerFn({ method: "POST" })
   .middleware(requireProjectContext)
   .validator(saveKeywordsSchema)

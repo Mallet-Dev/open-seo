@@ -69,18 +69,6 @@ export function useKeywordResearchController(
     toggleAllRows,
   } = useKeywordSelection();
   const {
-    setSerpKeyword,
-    serpPage,
-    setSerpPage,
-    SERP_PAGE_SIZE,
-    serpQuery,
-    serpResults,
-    activeSerpKeyword,
-    serpLoading,
-    serpError,
-  } = useKeywordSerpAnalysis(input.projectId, locationCode);
-
-  const {
     history,
     isLoaded: historyLoaded,
     addSearch,
@@ -97,7 +85,7 @@ export function useKeywordResearchController(
     lastSearchLocationCode,
     researchError,
     researchMutationError,
-    researchQuery,
+    needsSearch,
     searchedKeyword,
     isLoading,
     retryResearch,
@@ -126,16 +114,6 @@ export function useKeywordResearchController(
       })
     : null;
 
-  const previousSearchKeyRef = useRef<string | null>(null);
-  const handledSerpSearchKeyRef = useRef<string | null>(null);
-
-  const clearActiveKeywordResult = useCallback(() => {
-    clearSelection();
-    uiState.setSelectedKeyword(null);
-    setSerpKeyword(null);
-    setSerpPage(0);
-  }, [clearSelection, setSerpKeyword, setSerpPage, uiState]);
-
   const onFormSubmit = input.onFormSubmit;
   const controlsForm = useKeywordControlsForm(
     {
@@ -147,33 +125,6 @@ export function useKeywordResearchController(
       onFormSubmit(value);
     },
   );
-
-  // The URL is the source of truth for paid keyword research queries. This
-  // effect only resets UI state around a new query key; TanStack Query owns the
-  // actual fetch, cache, dedupe, and error lifecycle.
-  useEffect(() => {
-    if (activeSearchKey === previousSearchKeyRef.current) return;
-    previousSearchKeyRef.current = activeSearchKey;
-    handledSerpSearchKeyRef.current = null;
-
-    clearActiveKeywordResult();
-  }, [activeSearchKey, clearActiveKeywordResult]);
-
-  useEffect(() => {
-    if (!activeSearchKey || !researchQuery.isSuccess) return;
-    if (handledSerpSearchKeyRef.current === activeSearchKey) return;
-
-    handledSerpSearchKeyRef.current = activeSearchKey;
-    setSerpKeyword(rows.length > 0 ? searchedKeyword : null);
-    setSerpPage(0);
-  }, [
-    activeSearchKey,
-    researchQuery.isSuccess,
-    rows.length,
-    searchedKeyword,
-    setSerpKeyword,
-    setSerpPage,
-  ]);
 
   const { filteredRows, activeFilterCount } = useKeywordFiltering({
     rows,
@@ -192,6 +143,21 @@ export function useKeywordResearchController(
       lastSearchError,
       keywordMode: input.keywordMode,
     });
+
+  const serp = useKeywordSerpAnalysis(
+    input.projectId,
+    uiState.selectedKeyword?.keyword ?? searchedKeyword,
+    locationCode,
+  );
+  const { setSerpPage } = serp;
+  const previousSearchKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (activeSearchKey === previousSearchKeyRef.current) return;
+    previousSearchKeyRef.current = activeSearchKey;
+    clearSelection();
+    uiState.setSelectedKeyword(null);
+    setSerpPage(0);
+  }, [activeSearchKey, clearSelection, setSerpPage, uiState]);
 
   const retrySearch = useCallback(() => {
     void retryResearch();
@@ -230,13 +196,13 @@ export function useKeywordResearchController(
   const handleRowClick = (row: KeywordResearchRow) => {
     captureClientEvent("keyword_research:serp_open");
     uiState.setSelectedKeyword(row);
-    setSerpKeyword(row.keyword);
-    setSerpPage(0);
+    serp.inspectSerp(row.keyword);
   };
 
   return {
     activeFilterCount,
-    activeSerpKeyword,
+    ...serp,
+    needsSearch,
     confirmSave,
     controlsForm,
     exportCsv,
@@ -265,14 +231,12 @@ export function useKeywordResearchController(
     rows,
     searchedKeyword,
     selectedRows,
-    serpError,
-    serpLoading,
-    serpPage,
-    serpQuery,
-    serpResults,
+    selectKeyword: (row: KeywordResearchRow) => {
+      uiState.setSelectedKeyword(row);
+      setSerpPage(0);
+    },
     setMobileTab: uiState.setMobileTab,
     setSelectedRows,
-    setSerpPage,
     setShowFilters: uiState.setShowFilters,
     setShowSaveDialog: uiState.setShowSaveDialog,
     showApproximateMatchNotice,
@@ -287,6 +251,5 @@ export function useKeywordResearchController(
     toggleAllRows: handleToggleAllRows,
     toggleRowSelection,
     toggleSort,
-    SERP_PAGE_SIZE,
   };
 }

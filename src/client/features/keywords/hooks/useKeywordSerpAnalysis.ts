@@ -1,47 +1,50 @@
-import { useQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { getStandardErrorMessage } from "@/client/lib/error-messages";
 import { getSerpAnalysis } from "@/serverFunctions/keywords";
 
-export function useKeywordSerpAnalysis(
+function serpOptions(
   projectId: string,
+  keyword: string,
   locationCode: number | undefined,
 ) {
-  const [serpKeyword, setSerpKeyword] = useState<string | null>(null);
-  const [serpPage, setSerpPage] = useState(0);
-  const SERP_PAGE_SIZE = 10;
-
-  const serpQuery = useQuery({
-    queryKey: ["serpAnalysis", projectId, serpKeyword, locationCode],
+  return queryOptions({
+    queryKey: ["serpAnalysis", projectId, keyword, locationCode],
     queryFn: () =>
-      getSerpAnalysis({
-        data: {
-          projectId,
-          keyword: serpKeyword!,
-          locationCode,
-        },
-      }),
-    enabled: !!serpKeyword,
+      getSerpAnalysis({ data: { projectId, keyword, locationCode } }),
+    staleTime: 12 * 60 * 60 * 1000,
+    retry: false,
+    enabled: false,
   });
+}
 
-  const serpResults = serpQuery.data?.items ?? [];
-  const activeSerpKeyword =
-    serpKeyword ?? serpQuery.data?.requestedKeyword ?? null;
-  const serpLoading = !!serpKeyword && serpQuery.isLoading;
-  const serpError = serpQuery.isError
-    ? getStandardErrorMessage(serpQuery.error, "Failed to load SERP data.")
-    : null;
+export function useKeywordSerpAnalysis(
+  projectId: string,
+  keyword: string,
+  locationCode: number | undefined,
+) {
+  const queryClient = useQueryClient();
+  const [serpPage, setSerpPage] = useState(0);
+  const query = useQuery(serpOptions(projectId, keyword, locationCode));
+
+  function inspectSerp(selectedKeyword: string) {
+    setSerpPage(0);
+    void queryClient.prefetchQuery(
+      serpOptions(projectId, selectedKeyword, locationCode),
+    );
+  }
 
   return {
-    serpKeyword,
-    setSerpKeyword,
+    inspectSerp,
     serpPage,
     setSerpPage,
-    SERP_PAGE_SIZE,
-    serpQuery,
-    serpResults,
-    activeSerpKeyword,
-    serpLoading,
-    serpError,
+    SERP_PAGE_SIZE: 10,
+    serpResults: query.data?.items ?? [],
+    activeSerpKeyword:
+      query.data || query.isFetching || query.isError ? keyword : null,
+    serpLoading: query.isFetching,
+    serpError: query.isError
+      ? getStandardErrorMessage(query.error, "Failed to load SERP data.")
+      : null,
   };
 }

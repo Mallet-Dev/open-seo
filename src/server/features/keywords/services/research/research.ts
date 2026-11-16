@@ -46,8 +46,6 @@ type ResearchResult = {
   diagnostics: ResearchDiagnostics;
 };
 
-type CachedResult = ResearchResult;
-
 const cachedKeywordRowSchema = z.object({
   keyword: z.string(),
   searchVolume: z.number().nullable(),
@@ -285,11 +283,10 @@ function persistRows(
   });
 }
 
-export async function research(
+async function prepareResearch(
   input: ResolvedResearchKeywordsInput,
   billingCustomer: BillingCustomerContext,
-  creditFeature?: CreditFeature,
-): Promise<ResearchResult> {
+) {
   const uniqueKeywords = [
     ...new Set(input.keywords.map(normalizeKeyword)),
   ].filter((keyword) => keyword.length > 0);
@@ -317,9 +314,30 @@ export async function research(
 
   const cachedRaw = await getCached(cacheKey);
   const cachedResult = cachedResultSchema.safeParse(cachedRaw);
-  const cached: CachedResult | null = cachedResult.success
-    ? cachedResult.data
-    : null;
+  return {
+    cached: cachedResult.success ? cachedResult.data : null,
+    effectiveInput,
+    seedKeyword,
+    mode,
+    provider,
+    cacheKey,
+  };
+}
+
+export async function getCachedResearch(
+  input: ResolvedResearchKeywordsInput,
+  billingCustomer: BillingCustomerContext,
+) {
+  return (await prepareResearch(input, billingCustomer)).cached;
+}
+
+export async function research(
+  input: ResolvedResearchKeywordsInput,
+  billingCustomer: BillingCustomerContext,
+  creditFeature?: CreditFeature,
+): Promise<ResearchResult> {
+  const { cached, effectiveInput, seedKeyword, mode, provider, cacheKey } =
+    await prepareResearch(input, billingCustomer);
 
   if (cached && cached.rows.length > 0) {
     return cached;

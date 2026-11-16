@@ -1,6 +1,11 @@
 import { KeywordSaveDialog } from "./KeywordSaveDialog";
 import { Link } from "@tanstack/react-router";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  buildKeywordResearchRequest,
+  runKeywordResearch,
+} from "@/client/features/keywords/hooks/useKeywordResearchData";
 import { AlertCircle, ArrowLeft } from "lucide-react";
 import { getErrorCode } from "@/client/lib/error-messages";
 import { BILLING_ROUTE } from "@/shared/billing";
@@ -39,6 +44,8 @@ function isKeywordSearchTab(tab: SearchTab): tab is KeywordSearchTab {
 }
 
 export function KeywordResearchPage(input: Props) {
+  const queryClient = useQueryClient();
+  const submittedTabs = useRef(new Set<string>());
   const setSearchParams = useKeywordSearchParams();
   const projectId = input.projectId;
   const { locationCode, displayedLocationCode, setPreferredLocationCode } =
@@ -119,6 +126,19 @@ export function KeywordResearchPage(input: Props) {
       : null;
   }, [searchTabs.activeTabId, searchTabs.tabs, urlInput]);
 
+  const runSubmittedTab = useCallback(
+    (tabInput: KeywordSearchTabInput) => {
+      const request = buildKeywordResearchRequest({
+        ...tabInput,
+        locationCode: tabInput.locationCode,
+        keywordInput: tabInput.keyword,
+        projectId,
+      });
+      if (request) void runKeywordResearch(queryClient, request);
+    },
+    [projectId, queryClient],
+  );
+
   const onFormSubmit = useCallback(
     (value: KeywordControlsValues) => {
       const keywords = parseKeywordInput(value.keyword);
@@ -135,10 +155,14 @@ export function KeywordResearchPage(input: Props) {
 
       for (const tabInput of inputs) {
         searchTabs.openTab(tabInput);
+        submittedTabs.current.add(tabInputKey(tabInput));
       }
-      navigateToKeywordInput(inputs.at(-1) ?? null);
+      const last = inputs[inputs.length - 1];
+      submittedTabs.current.delete(tabInputKey(last));
+      runSubmittedTab(last);
+      navigateToKeywordInput(last);
     },
-    [navigateToKeywordInput, searchTabs],
+    [navigateToKeywordInput, runSubmittedTab, searchTabs],
   );
   const showRecentSearches = useCallback(() => {
     searchTabs.setActiveTab(null);
@@ -200,8 +224,22 @@ export function KeywordResearchPage(input: Props) {
               projectId={projectId}
               tabs={searchTabs.tabs}
               activeTabId={searchTabs.activeTabId}
-              onSelect={searchTabs.selectTab}
-              onClose={searchTabs.closeTab}
+              onSelect={(tab) => {
+                if (
+                  isKeywordSearchTab(tab) &&
+                  submittedTabs.current.delete(tabInputKey(tab.input))
+                ) {
+                  runSubmittedTab(tab.input);
+                }
+                searchTabs.selectTab(tab);
+              }}
+              onClose={(id) => {
+                const tab = searchTabs.tabs.find(
+                  (candidate) => candidate.id === id,
+                );
+                if (tab) submittedTabs.current.delete(tabInputKey(tab.input));
+                searchTabs.closeTab(id);
+              }}
               onViewed={searchTabs.markTabViewed}
             />
           </div>
@@ -252,11 +290,19 @@ function KeywordResearchContent({
             </Link>
           ) : (
             <button className="btn btn-sm" onClick={controller.retrySearch}>
-              Try again
+              Search again (may use credits)
             </button>
           )}
         </div>
       </div>
+    );
+  }
+
+  if (controller.needsSearch) {
+    return (
+      <p role="status">
+        No saved results for this search. Select Search to run it using credits.
+      </p>
     );
   }
 

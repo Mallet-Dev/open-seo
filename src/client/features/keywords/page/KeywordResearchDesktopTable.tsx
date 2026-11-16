@@ -31,6 +31,7 @@ type Props = {
   sortField: SortField;
   toggleSort: (field: SortField) => void;
   resetFilters: () => void;
+  selectKeyword: (row: KeywordResearchRow) => void;
   handleRowClick: (row: KeywordResearchRow) => void;
 };
 
@@ -47,6 +48,7 @@ export function KeywordResearchDesktopTable({
   toggleSort,
   resetFilters,
   handleRowClick,
+  selectKeyword,
 }: Props) {
   const selectAnchorRef = useSelectionAnchor();
   const rowSelection = useMemo<RowSelectionState>(
@@ -214,7 +216,7 @@ export function KeywordResearchDesktopTable({
                 ? "bg-primary/5 border-l-2 border-l-primary"
                 : ""
             }`,
-            onClick: () => handleRowClick(row.original),
+            onClick: () => selectKeyword(row.original),
           })}
         />
       )}

@@ -38,6 +38,7 @@ function KeywordResearchPageRoute() {
   } = search;
   return (
     <KeywordResearchPage
+      key={projectId}
       projectId={projectId}
       keywordInput={keywordInput}
       locationCode={locationCode}

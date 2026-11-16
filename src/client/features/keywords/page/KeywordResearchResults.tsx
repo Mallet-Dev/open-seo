@@ -31,8 +31,8 @@ export function KeywordResearchResults({ controller }: Props) {
         </p>
       </div>
       <p className="mb-3 text-xs text-base-content/70">
-        Select keywords to compare or save them. Opening Google results for
-        another keyword may use credits.
+        Select keywords to compare or save them. Opening Google results may use
+        credits.
       </p>
       {controller.selectedRows.size > 1 && (
         <KeywordComparison

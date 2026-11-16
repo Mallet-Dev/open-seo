@@ -1,4 +1,4 @@
-export { research } from "./research";
+export { getCachedResearch, research } from "./research";
 export { getSerpAnalysis } from "./serp";
 export {
   saveKeywords,
