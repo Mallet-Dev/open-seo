@@ -13,7 +13,6 @@ import { getRequiredEnvValue } from "@/server/lib/runtime-env";
 import type { ErrorCode } from "@/shared/error-codes";
 
 const API_BASE = "https://api.dataforseo.com";
-const MAX_DATAFORSEO_ERROR_PAYLOAD_LENGTH = 1600;
 // Safety ceiling on any live call (Lighthouse is the slowest, ~tens of seconds).
 const DATAFORSEO_REQUEST_TIMEOUT_MS = 60_000;
 // Retry idempotent reads on transient 5xx. Total attempts = retries + 1; the
@@ -33,23 +32,6 @@ export type DataforseoErrorClassifier = (
   path: string,
 ) => AppError | null;
 
-function formatDataforseoErrorPayload(value: unknown): string {
-  const text =
-    typeof value === "string"
-      ? value
-      : (() => {
-          try {
-            return JSON.stringify(value);
-          } catch {
-            return String(value);
-          }
-        })();
-
-  return text.length > MAX_DATAFORSEO_ERROR_PAYLOAD_LENGTH
-    ? `${text.slice(0, MAX_DATAFORSEO_ERROR_PAYLOAD_LENGTH)}... [truncated]`
-    : text;
-}
-
 function formatDataforseoRequestPath(url: RequestInfo): string {
   const rawUrl = typeof url === "string" ? url : url.url;
   try {
@@ -68,6 +50,7 @@ function formatDataforseoRequestPath(url: RequestInfo): string {
 function createAuthenticatedFetch(
   classify?: DataforseoErrorClassifier,
   maxServerErrorRetries = DATAFORSEO_MAX_RETRIES,
+  beforeRequest?: () => Promise<void>,
 ) {
   return async (url: RequestInfo, init?: RequestInit): Promise<Response> => {
     const apiKey = await getRequiredEnvValue("DATAFORSEO_API_KEY");
@@ -78,12 +61,22 @@ function createAuthenticatedFetch(
     const signal =
       init?.signal ?? AbortSignal.timeout(DATAFORSEO_REQUEST_TIMEOUT_MS);
 
+    const method = (
+      init?.method ?? (typeof url === "string" ? "GET" : url.method)
+    ).toUpperCase();
+    const canRetry = method === "GET" || method === "HEAD";
+    // Paid POSTs can have been charged even when the response is lost.
+    await beforeRequest?.();
     for (let attempt = 0; ; attempt++) {
       const response = await fetch(url, { ...init, headers, signal });
       if (response.ok) return response;
 
       // Transient upstream 5xx on an idempotent read -> back off and retry.
-      if (response.status >= 500 && attempt < maxServerErrorRetries) {
+      if (
+        canRetry &&
+        response.status >= 500 &&
+        attempt < maxServerErrorRetries
+      ) {
         await new Promise((resolve) =>
           setTimeout(resolve, DATAFORSEO_RETRY_BACKOFF_MS * (attempt + 1)),
         );
@@ -110,7 +103,6 @@ function createAuthenticatedFetch(
           provider: "dataforseo",
           providerStatus: String(response.status),
           providerPath: path,
-          responseBody: formatDataforseoErrorPayload(rawText),
         },
       );
       error.name = "DataForSEOHttpError";
@@ -122,8 +114,15 @@ function createAuthenticatedFetch(
 function http(
   classify?: DataforseoErrorClassifier,
   maxServerErrorRetries = DATAFORSEO_MAX_RETRIES,
+  beforeRequest?: () => Promise<void>,
 ) {
-  return { fetch: createAuthenticatedFetch(classify, maxServerErrorRetries) };
+  return {
+    fetch: createAuthenticatedFetch(
+      classify,
+      maxServerErrorRetries,
+      beforeRequest,
+    ),
+  };
 }
 
 // Per-section API factories. Each is created per-request so the auth secret is
@@ -142,7 +141,13 @@ export const onPageApi = () => new OnPageApi(API_BASE, http(undefined, 0));
 // Account/appendix data (spend, balance, rates). userData() is FREE ($0) and
 // read-only — do NOT wire it through metering.
 export const appendixApi = () => new AppendixApi(API_BASE, http());
-export const backlinksApi = (classify?: DataforseoErrorClassifier) =>
-  new BacklinksApi(API_BASE, http(classify));
+export const backlinksApi = (
+  classify?: DataforseoErrorClassifier,
+  beforeRequest?: () => Promise<void>,
+) =>
+  new BacklinksApi(
+    API_BASE,
+    http(classify, DATAFORSEO_MAX_RETRIES, beforeRequest),
+  );
 export const aiOptimizationApi = (classify?: DataforseoErrorClassifier) =>
   new AiOptimizationApi(API_BASE, http(classify));

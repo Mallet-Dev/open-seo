@@ -6,24 +6,7 @@ Maintenance for installs created with the retired **Deploy to Cloudflare button*
 
 Your repo was created by the deploy button and `wrangler.jsonc` holds your resource IDs; keep them while pulling the newest code.
 
-One-time setup:
-
-```bash
-git remote add upstream https://github.com/every-app/open-seo.git
-```
-
-Update steps:
-
-```bash
-git fetch upstream
-cp wrangler.jsonc wrangler.local.backup.jsonc
-git checkout main
-git reset --hard upstream/main
-cp wrangler.local.backup.jsonc wrangler.jsonc
-git add wrangler.jsonc
-git commit -m "restore Cloudflare settings" || true
-git push --force-with-lease origin main
-```
+Keep your existing resource IDs and a backup of the deployment. Compare changes from your chosen repository with your own branch and review migrations before applying them. The original project is [every-app/open-seo](https://github.com/every-app/open-seo). The workbench fork is [Mallet-Dev/open-seo](https://github.com/Mallet-Dev/open-seo). Replacing a deployment with a fresh one does not move its data.
 
 ## Updating (manual Wrangler deployments)
 

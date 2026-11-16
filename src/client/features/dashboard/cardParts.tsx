@@ -14,7 +14,7 @@ export function CardShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-base-300 bg-base-100 shadow-sm">
+    <div className="overflow-hidden rounded-xl border border-base-300 bg-base-100">
       <div className="flex items-center justify-between gap-4 px-5 py-4">
         <h2 className="text-base font-semibold leading-tight">{title}</h2>
         {action}
@@ -22,7 +22,7 @@ export function CardShell({
       <div className="border-t border-base-300 p-5">
         {children}
         {stamp ? (
-          <p className="mt-4 text-[11px] text-base-content/45">{stamp}</p>
+          <p className="mt-4 text-xs text-base-content/70">{stamp}</p>
         ) : null}
       </div>
     </div>
@@ -59,10 +59,8 @@ export function Stat({
     tone === "success" ? "text-success" : tone === "error" ? "text-error" : "";
   return (
     <div>
-      <p className="text-xs uppercase tracking-wide text-base-content/60">
-        {label}
-      </p>
-      <p className={`text-2xl font-semibold tabular-nums ${toneClass}`}>
+      <p className="text-xs font-medium text-base-content/75">{label}</p>
+      <p className={`text-xl font-semibold tabular-nums ${toneClass}`}>
         {value}
       </p>
       {sub}
@@ -83,16 +81,21 @@ export function PercentDelta({
   const rounded = Math.round(pct);
   const tone = rounded > 0 ? "text-success" : rounded < 0 ? "text-error" : "";
   return (
-    <p className={`text-xs tabular-nums ${tone}`}>
+    <p
+      className={`text-xs tabular-nums ${tone}`}
+      aria-label={`${rounded > 0 ? "Up " : rounded < 0 ? "Down " : ""}${Math.abs(rounded)}% versus the previous period`}
+      title="Compared with the previous period"
+    >
       {rounded > 0 ? "▲" : rounded < 0 ? "▼" : ""} {Math.abs(rounded)}%
     </p>
   );
 }
 
-export const moreDetailsClass = "btn btn-ghost btn-xs";
+export const moreDetailsClass =
+  "link link-primary shrink-0 text-xs font-medium underline-offset-2";
 
 export function newLost(value: number | null): string {
-  return value === null ? "—" : String(value);
+  return value === null ? "Unavailable" : value.toLocaleString();
 }
 
 export function formatDay(timestamp: string): string {
@@ -105,6 +108,7 @@ export function formatDay(timestamp: string): string {
   );
   if (Number.isNaN(ms)) return timestamp;
   return new Date(ms).toLocaleDateString(undefined, {
+    year: "numeric",
     month: "short",
     day: "numeric",
   });

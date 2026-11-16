@@ -1,3 +1,4 @@
+import { KeywordSaveDialog } from "./KeywordSaveDialog";
 import { Link } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
 import { AlertCircle, ArrowLeft } from "lucide-react";
@@ -181,9 +182,6 @@ export function KeywordResearchPage(input: Props) {
       <div className="mx-auto flex max-w-7xl flex-col gap-5">
         <div>
           <h1 className="text-2xl font-semibold">Keyword Research</h1>
-          <p className="text-sm text-base-content/70">
-            Discover keyword ideas, search demand, and ranking opportunities.
-          </p>
         </div>
 
         <KeywordResearchSearchBar controller={controller} />
@@ -212,7 +210,15 @@ export function KeywordResearchPage(input: Props) {
           controller={controller}
           projectId={input.projectId}
         />
-        <KeywordSaveDialog controller={controller} />
+        {controller.showSaveDialog && (
+          <KeywordSaveDialog
+            count={controller.selectedRows.size}
+            isSaving={controller.isSaving}
+            error={controller.saveError}
+            onClose={() => controller.setShowSaveDialog(false)}
+            onSave={controller.confirmSave}
+          />
+        )}
       </div>
     </div>
   );
@@ -264,42 +270,4 @@ function KeywordResearchContent({
   }
 
   return <KeywordResearchResults controller={controller} />;
-}
-
-function KeywordSaveDialog({
-  controller,
-}: {
-  controller: KeywordResearchControllerState;
-}) {
-  if (!controller.showSaveDialog) return null;
-
-  return (
-    <div className="modal modal-open">
-      <div className="modal-box">
-        <h3 className="font-bold text-lg">
-          Save {controller.selectedRows.size} Keywords
-        </h3>
-        <div className="py-4">
-          <p className="text-base-content/70 text-sm">
-            These keywords will be saved to your current project.
-          </p>
-        </div>
-        <div className="modal-action">
-          <button
-            className="btn"
-            onClick={() => controller.setShowSaveDialog(false)}
-          >
-            Cancel
-          </button>
-          <button className="btn btn-primary" onClick={controller.confirmSave}>
-            Save
-          </button>
-        </div>
-      </div>
-      <div
-        className="modal-backdrop"
-        onClick={() => controller.setShowSaveDialog(false)}
-      />
-    </div>
-  );
 }

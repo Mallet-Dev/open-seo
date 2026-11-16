@@ -189,3 +189,14 @@ export function nullableStringSort(
   if (!b) return -1;
   return a.localeCompare(b);
 }
+
+export function averageMeasuredResponseTime(
+  pages: Pick<PageRow, "responseTimeMs">[],
+) {
+  const measured = pages
+    .map((page) => page.responseTimeMs)
+    .filter((ms) => ms != null);
+  return measured.length
+    ? Math.round(measured.reduce((sum, ms) => sum + ms, 0) / measured.length)
+    : null;
+}

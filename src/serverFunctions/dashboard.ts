@@ -2,7 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { ActivationRepository } from "@/server/features/activation/repositories/ActivationRepository";
 import { DashboardService } from "@/server/features/dashboard/services/DashboardService";
 import { requireProjectContext } from "@/serverFunctions/middleware";
-import { dashboardProjectInputSchema } from "@/types/schemas/dashboard";
+import {
+  dashboardBacklinkRefreshSchema,
+  dashboardProjectInputSchema,
+} from "@/types/schemas/dashboard";
 
 export const getDashboardActivation = createServerFn({ method: "POST" })
   .middleware(requireProjectContext)
@@ -25,16 +28,14 @@ export const getDashboardOverview = createServerFn({ method: "POST" })
     }),
   );
 
-// Visit-triggered: the client calls this when the overview reports a missing
-// or stale backlink snapshot. Metered against org credits at most once per
-// project per day (the service re-checks freshness server-side).
 export const refreshDashboardBacklinkSnapshot = createServerFn({
   method: "POST",
 })
   .middleware(requireProjectContext)
-  .validator(dashboardProjectInputSchema)
-  .handler(({ context }) =>
+  .validator(dashboardBacklinkRefreshSchema)
+  .handler(({ context, data }) =>
     DashboardService.ensureBacklinkSnapshot({
+      ...data,
       projectId: context.projectId,
       domain: context.project.domain,
       billingCustomer: context,

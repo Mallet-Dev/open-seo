@@ -1,3 +1,5 @@
+import type { MapsPointTask } from "@/shared/maps-collection";
+import type { MapsPostReceipt } from "./maps-tasks";
 import {
   type CreditFeature,
   mapDataforseoPathToCreditFeature,
@@ -51,13 +53,30 @@ function meter<I, T>(
     sections: DataforseoSections,
   ) => (input: I) => Promise<DataforseoApiResponse<T>>,
   defaultFeature?: CreditFeature,
-): (input: I & { creditFeature?: CreditFeature }) => Promise<T> {
+): (
+  input: I & { creditFeature?: CreditFeature; minimumCredits?: number },
+) => Promise<T> {
   return (input) =>
     meterDataforseoCall(
       customer,
       async () => pick(await loadDataforseoSections())(input),
       input.creditFeature ?? defaultFeature,
+      input.minimumCredits,
     );
+}
+
+export class MapsTaskSubmissionError extends AppError {
+  constructor(
+    public readonly receipt: MapsPostReceipt,
+    cause: unknown,
+  ) {
+    super(
+      "INTERNAL_ERROR",
+      "Maps submission could not finish. A provider receipt is available; do not submit again",
+    );
+    this.name = "MapsTaskSubmissionError";
+    this.cause = cause;
+  }
 }
 
 export function createDataforseoClient(customer: BillingCustomerContext) {
@@ -123,6 +142,25 @@ export function createDataforseoClient(customer: BillingCustomerContext) {
         "rank_tracking",
       ),
       local: meter(customer, (s) => s.fetchLocalSerp, "local_seo"),
+      mapsTaskPost: async (input: MapsPointTask) => {
+        const receipt: { current: MapsPostReceipt | null } = { current: null };
+        try {
+          return await meterDataforseoCall(
+            customer,
+            async () => {
+              const result = await (
+                await loadDataforseoSections()
+              ).postMapsTask(input, receipt);
+              return result;
+            },
+            "local_seo",
+          );
+        } catch (error) {
+          if (receipt.current)
+            throw new MapsTaskSubmissionError(receipt.current, error);
+          throw error;
+        }
+      },
     },
     labs: {
       // Callers (e.g. the keyword-metrics MCP tool) can attribute the spend to
@@ -155,6 +193,7 @@ async function meterDataforseoCall<T>(
   customer: BillingCustomerContext,
   execute: () => Promise<DataforseoApiResponse<T>>,
   creditFeature?: CreditFeature,
+  minimumCredits?: number,
 ): Promise<T> {
   const isHostedMode = await isHostedServerAuthMode();
 
@@ -167,6 +206,7 @@ async function meterDataforseoCall<T>(
 
   const { monthlyRemaining } = await assertUsageCreditsAvailable(
     billingCustomer.id,
+    minimumCredits,
   );
 
   let result: DataforseoApiResponse<T>;

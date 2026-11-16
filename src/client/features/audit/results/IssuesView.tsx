@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Search } from "lucide-react";
 import {
   getIssueDescriptor,
   ISSUE_SEVERITY_ORDER,
@@ -76,17 +76,33 @@ function groupIssues(issues: AuditIssueRow[]): IssueGroup[] {
 }
 
 export function IssuesView({ issues }: { issues: AuditIssueRow[] }) {
+  const [query, setQuery] = useState("");
+  const [severityFilter, setSeverityFilter] = useState<IssueSeverity | "all">(
+    "all",
+  );
   const groups = useMemo(() => groupIssues(issues), [issues]);
+  const visible = useMemo(() => {
+    const text = query.trim().toLowerCase();
+    return groups.flatMap((group) => {
+      if (severityFilter !== "all" && severityFilter !== group.severity)
+        return [];
+      if (!text || group.title.toLowerCase().includes(text)) return [group];
+      const matches = group.issues.filter((issue) =>
+        issue.pageUrl.toLowerCase().includes(text),
+      );
+      return matches.length ? [{ ...group, issues: matches }] : [];
+    });
+  }, [groups, query, severityFilter]);
 
   const sections = useMemo(
     () =>
       (["critical", "warning", "info"] as const)
         .map((severity) => ({
           severity,
-          groups: groups.filter((group) => group.severity === severity),
+          groups: visible.filter((group) => group.severity === severity),
         }))
         .filter((section) => section.groups.length > 0),
-    [groups],
+    [visible],
   );
 
   if (issues.length === 0) {
@@ -94,15 +110,62 @@ export function IssuesView({ issues }: { issues: AuditIssueRow[] }) {
       <div className="py-10 text-center text-base-content/60">
         <p className="font-medium">No issues recorded for this audit.</p>
         <p className="text-sm mt-1">
-          Either the site is in great shape, or this audit ran before issue
-          checks existed — run a new audit to get the full report.
+          See Pages for the URLs and response codes this audit recorded.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="border border-base-300 rounded-lg overflow-hidden">
+    <div className="overflow-hidden rounded-lg border border-base-300">
+      <div className="flex flex-wrap items-center gap-2 border-b border-base-300 p-3">
+        <label className="input input-bordered input-sm flex flex-1 items-center gap-2">
+          <Search className="size-4 shrink-0" aria-hidden />
+          <input
+            type="search"
+            className="min-w-0 grow"
+            aria-label="Find an issue or affected URL"
+            placeholder="Find an issue or affected URL"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+        <select
+          aria-label="Issue severity"
+          className="select select-bordered select-sm w-auto"
+          value={severityFilter}
+          onChange={(event) => {
+            const value = event.target.value;
+            if (
+              value === "all" ||
+              value === "critical" ||
+              value === "warning" ||
+              value === "info"
+            )
+              setSeverityFilter(value);
+          }}
+        >
+          <option value="all">All severities</option>
+          <option value="critical">Critical</option>
+          <option value="warning">Warnings</option>
+          <option value="info">Info</option>
+        </select>
+      </div>
+      {sections.length === 0 && (
+        <div className="flex flex-wrap items-center gap-3 p-5 text-sm">
+          <span role="status">No matching issues or URLs.</span>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => {
+              setQuery("");
+              setSeverityFilter("all");
+            }}
+          >
+            Reset filters
+          </button>
+        </div>
+      )}
       {sections.map((section) => (
         <IssueSection key={section.severity} section={section} />
       ))}
@@ -162,7 +225,7 @@ function IssueRow({ group }: { group: IssueGroup }) {
         <span
           className={`size-2 shrink-0 rounded-full ${SEVERITY_DOT[group.severity]}`}
         />
-        <span className="text-sm font-medium flex-1 min-w-0 truncate">
+        <span className="text-sm font-medium flex-1 min-w-0 break-words">
           {group.title}
         </span>
         <span className="text-xs tabular-nums text-base-content/50 shrink-0">

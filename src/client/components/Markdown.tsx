@@ -51,7 +51,7 @@ function SafeAnchor({ href, children, ...rest }: AnchorProps) {
   );
 }
 
-function isHttpUrl(value: string | undefined): value is string {
+export function isHttpUrl(value: string | undefined): value is string {
   if (!value) return false;
   try {
     const url = new URL(value);

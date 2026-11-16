@@ -1,8 +1,16 @@
+import workspaceStyles from "@/client/components/SearchWorkspace.css?url";
+import aiStyles from "@/client/features/ai-search/AiSearchWorkspace.css?url";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { BrandLookupPage } from "@/client/features/ai-search/BrandLookupPage";
 import { brandLookupSearchSchema } from "@/types/schemas/ai-search";
 
 export const Route = createFileRoute("/_project/p/$projectId/brand-lookup")({
+  head: () => ({
+    links: [
+      { rel: "stylesheet", href: workspaceStyles },
+      { rel: "stylesheet", href: aiStyles },
+    ],
+  }),
   validateSearch: brandLookupSearchSchema,
   component: BrandLookupRoute,
 });

@@ -35,7 +35,7 @@ export function LighthouseIssuesHeader({
   finalUrl?: string;
   scores?: LighthouseScores | null;
   metrics?: LighthouseMetrics | null;
-  severityCounts: { critical: number; warning: number; info: number };
+  severityCounts?: { critical: number; warning: number; info: number };
 }) {
   return (
     <>
@@ -44,9 +44,7 @@ export function LighthouseIssuesHeader({
           &larr; Back to {backLabel}
         </button>
         <span className="text-xs text-base-content/60">
-          {scannedAt
-            ? `Scanned ${new Date(scannedAt).toLocaleString()}`
-            : "Reading latest issues..."}
+          {scannedAt ? `Scanned ${new Date(scannedAt).toLocaleString()}` : ""}
         </span>
       </div>
 
@@ -54,25 +52,25 @@ export function LighthouseIssuesHeader({
         <div className="card-body py-5 gap-4">
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold">Lighthouse Issues</h1>
-            <p className="text-sm text-base-content/70 break-all">
-              {finalUrl ?? "Loading URL..."}
-            </p>
+            <p className="text-sm text-base-content/70 break-all">{finalUrl}</p>
           </div>
           <LighthouseIssuesSummary scores={scores} metrics={metrics} />
-          <div className="flex flex-wrap gap-2 text-xs">
-            <span className="badge border border-error/30 bg-error/10 text-error/80 gap-1">
-              <FileWarning className="size-3" />
-              Critical {severityCounts.critical}
-            </span>
-            <span className="badge border border-warning/30 bg-warning/10 text-warning/80 gap-1">
-              <TriangleAlert className="size-3" />
-              Warning {severityCounts.warning}
-            </span>
-            <span className="badge border border-info/30 bg-info/10 text-info/80 gap-1">
-              <Info className="size-3" />
-              Info {severityCounts.info}
-            </span>
-          </div>
+          {severityCounts && (
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="badge border border-error/30 bg-error/10 text-error/80 gap-1">
+                <FileWarning className="size-3" />
+                Critical {severityCounts.critical}
+              </span>
+              <span className="badge border border-warning/30 bg-warning/10 text-warning/80 gap-1">
+                <TriangleAlert className="size-3" />
+                Warning {severityCounts.warning}
+              </span>
+              <span className="badge border border-info/30 bg-info/10 text-info/80 gap-1">
+                <Info className="size-3" />
+                Info {severityCounts.info}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </>
@@ -80,6 +78,7 @@ export function LighthouseIssuesHeader({
 }
 
 export function LighthouseIssuesToolbar({
+  hasIssueDetails,
   category,
   categoryCounts,
   selectedCategoryLabel,
@@ -93,6 +92,7 @@ export function LighthouseIssuesToolbar({
   onExportSheets,
 }: {
   category: CategoryTab;
+  hasIssueDetails: boolean;
   categoryCounts: Record<CategoryTab, number>;
   selectedCategoryLabel: string;
   isBusy: boolean;
@@ -115,11 +115,13 @@ export function LighthouseIssuesToolbar({
   return (
     <div className="sticky top-0 z-[2] -mx-2 px-2 py-2 bg-base-100/95 backdrop-blur-sm border-b border-base-300/60">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <CategoryTabs
-          category={category}
-          categoryCounts={categoryCounts}
-          onCategoryChange={onCategoryChange}
-        />
+        {hasIssueDetails && (
+          <CategoryTabs
+            category={category}
+            categoryCounts={categoryCounts}
+            onCategoryChange={onCategoryChange}
+          />
+        )}
         <ExportMenu
           allIssues={allIssues}
           categoryLabelLower={categoryLabelLower}
@@ -155,6 +157,7 @@ function CategoryTabs({
               ? "border-primary text-base-content"
               : "border-transparent text-base-content/60 hover:text-base-content"
           }`}
+          aria-pressed={category === tab}
           onClick={() => onCategoryChange(tab)}
         >
           <span>{categoryLabel(tab)}</span>

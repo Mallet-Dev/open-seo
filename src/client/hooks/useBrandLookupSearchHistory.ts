@@ -19,6 +19,8 @@ export type BrandLookupSearchHistoryItem = BrandLookupSearchBody & {
 
 export function useBrandLookupSearchHistory(projectId: string) {
   return useTimestampedSearchHistory({
+    projectId,
+    feature: "brand-lookup",
     storageKey: `brand-lookup-search-history:${projectId}`,
     bodySchema: brandLookupSearchBodySchema,
     // Competitor set is part of the identity: a plain lookup must not replace
@@ -27,5 +29,7 @@ export function useBrandLookupSearchHistory(projectId: string) {
       a.query === b.query &&
       a.competitors.join(",") === b.competitors.join(",") &&
       a.scope === b.scope,
+    getSearchKey: (item) =>
+      JSON.stringify([item.query, item.competitors, item.scope]),
   });
 }

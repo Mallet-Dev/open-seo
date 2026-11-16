@@ -5,6 +5,8 @@ import {
   type RowSelectionState,
   type SortingState,
 } from "@tanstack/react-table";
+import { Link } from "@tanstack/react-router";
+import { LOCATIONS } from "@/client/features/keywords/locations";
 import { Search } from "lucide-react";
 import { useMemo } from "react";
 import {
@@ -50,8 +52,36 @@ export function SavedKeywordsTable({
         header: ({ column }) => (
           <SortableHeader column={column} label="Keyword" />
         ),
-        cell: ({ getValue }) => (
-          <span className="font-medium">{getValue()}</span>
+        cell: ({ row }) => (
+          <div className="flex flex-col items-start gap-0.5">
+            <details>
+              <summary className="w-fit cursor-pointer font-medium text-primary hover:underline">
+                {row.original.keyword}
+              </summary>
+              <Link
+                to="/p/$projectId/keywords"
+                params={{ projectId: row.original.projectId }}
+                search={{
+                  q: row.original.keyword,
+                  loc: row.original.locationCode,
+                }}
+                preload={false}
+                className="link link-primary font-medium"
+                title="Research this keyword in the saved country"
+              >
+                Run keyword report
+              </Link>
+              <p className="text-xs text-base-content/65">
+                Uses the current research language for this country. A new
+                lookup may use credits.
+              </p>
+            </details>
+            <span className="text-xs text-base-content/65">
+              {LOCATIONS[row.original.locationCode] ??
+                row.original.locationCode}{" "}
+              · {row.original.languageCode}
+            </span>
+          </div>
         ),
       }),
       columnHelper.accessor("searchVolume", {
@@ -61,7 +91,9 @@ export function SavedKeywordsTable({
         cell: ({ getValue }) => formatSavedKeywordNumber(getValue()),
       }),
       columnHelper.accessor("cpc", {
-        header: ({ column }) => <SortableHeader column={column} label="CPC" />,
+        header: ({ column }) => (
+          <SortableHeader column={column} label="CPC (USD)" />
+        ),
         cell: ({ getValue }) => {
           const value = getValue();
           return value == null ? "-" : `$${value.toFixed(2)}`;

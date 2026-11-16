@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { useLocalHistoryStore } from "@/client/hooks/useLocalHistoryStore";
+import { useSharedSearchHistory } from "@/client/hooks/useSharedSearchHistory";
 import { jsonCodec } from "@/shared/json";
 import {
   researchScopeSchema,
@@ -19,7 +19,6 @@ type AddBacklinksSearchInput = Omit<
   "timestamp" | "scopeVersion"
 >;
 
-const MAX_HISTORY = 20;
 const SCOPE_VERSION = 2;
 
 /**
@@ -70,16 +69,18 @@ function isSameSearch(
 }
 
 export function useBacklinksSearchHistory(projectId: string) {
-  const { history, isLoaded, addItem, removeItem } = useLocalHistoryStore<
+  const historyStore = useSharedSearchHistory<
     BacklinksSearchHistoryItem,
     AddBacklinksSearchInput
   >({
+    projectId,
+    feature: "backlinks",
     storageKey: `backlinks-search-history:${projectId}`,
-    maxItems: MAX_HISTORY,
     parse: (raw) => {
       const parsed = backlinksSearchHistoryCodec.safeParse(raw);
       return parsed.success ? parsed.data : null;
     },
+    itemSchema: backlinksSearchHistoryItemSchema,
     isSameItem: isSameSearch,
     createItem: (item) => ({
       ...item,
@@ -87,12 +88,13 @@ export function useBacklinksSearchHistory(projectId: string) {
       scopeVersion: SCOPE_VERSION,
     }),
     getItemKey: (item) => item.timestamp,
+    getSearchKey: (item) => JSON.stringify([item.target, item.scope]),
   });
 
   return {
-    history,
-    isLoaded,
-    addSearch: addItem,
-    removeHistoryItem: removeItem,
+    history: historyStore.history,
+    isLoaded: historyStore.isLoaded,
+    addSearch: historyStore.addItem,
+    removeHistoryItem: historyStore.removeItem,
   };
 }

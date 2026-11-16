@@ -1,3 +1,6 @@
+import { mapsPointTask, prepareMapsSpec } from "@/shared/maps-collection";
+import { fetchBacklinksSummary, postMapsTask } from "./sections";
+import { MapsTaskSubmissionError } from "./client";
 /* eslint-disable max-lines */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -53,44 +56,11 @@ vi.mock("@/server/lib/posthog", () => ({
   captureServerEvent: vi.fn(),
 }));
 
-// Mock every section module the client wraps so meterDataforseoCall's
-// `execute()` resolves to a controllable fixture.
-vi.mock("@/server/lib/dataforseo/labs", () => ({
-  fetchRelatedKeywords: vi.fn(),
-  fetchKeywordSuggestions: vi.fn(),
-  fetchKeywordIdeas: vi.fn(),
-  fetchDomainRankOverview: vi.fn(),
-  fetchRankedKeywords: vi.fn(),
-  fetchRelevantPages: vi.fn(),
-  fetchKeywordOverview: vi.fn(),
-  fetchSerpCompetitors: vi.fn(),
-}));
-vi.mock("@/server/lib/dataforseo/serp", () => ({
-  fetchLiveSerp: vi.fn(),
-  fetchRankCheckSerp: vi.fn(),
-  postRankCheckTasks: vi.fn(),
-  fetchLocalSerp: vi.fn(),
-}));
-vi.mock("@/server/lib/dataforseo/business", () => ({
-  fetchBusinessListingsSearch: vi.fn(),
-  fetchQuestionsAnswers: vi.fn(),
-}));
-vi.mock("@/server/lib/dataforseo/backlinks", () => ({
+// These billing tests exercise two operations. Mock the section boundary so
+// importing another provider cannot start its SDK during a balance check.
+vi.mock("@/server/lib/dataforseo/sections", () => ({
   fetchBacklinksSummary: vi.fn(),
-  fetchBacklinksRows: vi.fn(),
-  fetchReferringDomains: vi.fn(),
-  fetchDomainPagesSummary: vi.fn(),
-  fetchBacklinksHistory: vi.fn(),
-}));
-vi.mock("@/server/lib/dataforseo/lighthouse", () => ({
-  fetchLighthouseResult: vi.fn(),
-}));
-vi.mock("@/server/lib/dataforseo/ai", () => ({
-  fetchLlmMentionsSearch: vi.fn(),
-  fetchLlmAggregatedMetrics: vi.fn(),
-  fetchLlmTopPages: vi.fn(),
-  fetchLlmCrossAggregatedMetrics: vi.fn(),
-  fetchLlmResponse: vi.fn(),
+  postMapsTask: vi.fn(),
 }));
 
 import {
@@ -98,7 +68,6 @@ import {
   mapDataforseoPathToCreditFeature,
 } from "@/server/lib/dataforseo/client";
 import { DataforseoChargedTaskError } from "@/server/lib/dataforseo/envelope";
-import { fetchBacklinksSummary } from "@/server/lib/dataforseo/backlinks";
 
 const billingCustomer = {
   organizationId: "org_123",
@@ -174,6 +143,18 @@ describe("meterDataforseoCall with split balances", () => {
   const EXPECTED_CREDITS = Math.ceil(
     RAW_COST * SEO_DATA_COST_MARKUP * AUTUMN_SEO_DATA_CREDITS_PER_USD,
   );
+
+  it("refuses a priced call when combined positive balances are below its estimate", async () => {
+    setupHostedMode();
+    mockBalances(10, 20);
+    await expect(
+      createDataforseoClient(billingCustomer).backlinks.summary({
+        ...backlinksInput,
+        minimumCredits: 31,
+      }),
+    ).rejects.toMatchObject({ code: "INSUFFICIENT_CREDITS" });
+    expect(fetchBacklinksSummary).not.toHaveBeenCalled();
+  });
 
   it("deducts entirely from monthly when monthly has enough", async () => {
     setupHostedMode();
@@ -527,5 +508,98 @@ describe("mapDataforseoPathToCreditFeature", () => {
         "live",
       ]),
     ).toBe("keyword_research");
+  });
+});
+
+describe("queued Maps submission recovery", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupHostedMode();
+    mockBalances(100, 0);
+    trackMock.mockResolvedValue(undefined);
+    vi.mocked(postMapsTask).mockReset();
+  });
+  const input = mapsPointTask(
+    "11000000-0000-4000-8000-000000000001",
+    prepareMapsSpec({
+      query: "tile",
+      languageCode: "en",
+      center: { latitude: 43.7, longitude: -79.4 },
+    }),
+    0,
+  );
+  const posted = {
+    taskId: "00000000-0000-0000-0000-000000000001",
+    tag: input.tag,
+    providerCostUsd: 0.0006,
+  };
+  const receipt = {
+    taskId: posted.taskId,
+    requestTag: input.tag,
+    providerTag: input.tag,
+    providerStatus: 20100,
+    providerCostUsd: 0.0006,
+    identityVerified: true,
+    returnedTaskCount: 1,
+    returnedTaskIds: [posted.taskId],
+  };
+  function provider() {
+    vi.mocked(postMapsTask).mockImplementation(async (_input, capture) => {
+      capture.current = receipt;
+      return {
+        data: posted,
+        billing: {
+          path: ["v3", "serp", "google", "maps", "task_post"],
+          costUsd: 0.0006,
+        },
+      };
+    });
+  }
+  it("meters each point once and returns its handle", async () => {
+    provider();
+    expect(
+      await createDataforseoClient(billingCustomer).serp.mapsTaskPost(input),
+    ).toEqual(posted);
+    expect(postMapsTask).toHaveBeenCalledTimes(1);
+    expect(trackMock).toHaveBeenCalledTimes(1);
+    expect(trackMock.mock.calls[0][0].value).toBe(1);
+  });
+  it("preserves the known handle when post-success billing fails without reposting", async () => {
+    provider();
+    trackMock.mockRejectedValueOnce(new Error("billing unavailable"));
+    const error: unknown = await createDataforseoClient(billingCustomer)
+      .serp.mapsTaskPost(input)
+      .catch((caught: unknown) => caught);
+    if (!(error instanceof MapsTaskSubmissionError))
+      throw new Error("Expected Maps receipt recovery");
+    expect(error).toBeInstanceOf(MapsTaskSubmissionError);
+    expect(error.receipt).toEqual(receipt);
+    expect(postMapsTask).toHaveBeenCalledTimes(1);
+    expect(trackMock).toHaveBeenCalledTimes(1);
+  });
+  it("preserves an unverified receipt and still meters a charged validation failure", async () => {
+    vi.mocked(postMapsTask).mockImplementation(async (_input, capture) => {
+      capture.current = {
+        ...receipt,
+        identityVerified: false,
+        providerTag: "wrong",
+      };
+      throw new DataforseoChargedTaskError(
+        "Maps submission response could not be verified",
+        {
+          path: ["v3", "serp", "google", "maps", "task_post"],
+          costUsd: 0.0006,
+        },
+      );
+    });
+    const error: unknown = await createDataforseoClient(billingCustomer)
+      .serp.mapsTaskPost(input)
+      .catch((caught: unknown) => caught);
+    if (!(error instanceof MapsTaskSubmissionError))
+      throw new Error("Expected Maps receipt recovery");
+    expect(error).toBeInstanceOf(MapsTaskSubmissionError);
+    expect(error.receipt.identityVerified).toBe(false);
+    expect(trackMock).toHaveBeenCalledTimes(1);
+    expect(postMapsTask).toHaveBeenCalledTimes(1);
   });
 });

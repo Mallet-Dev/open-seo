@@ -1,6 +1,6 @@
 # Cloudflare Self-Hosting
 
-Host OpenSEO on Cloudflare for internet-facing self-hosting across multiple devices or with your team. One deploy command provisions everything, including the Cloudflare Access login gate. Works on Cloudflare's free plan.
+Host OpenSEO on Cloudflare for internet-facing self-hosting across multiple devices or with your team. One deploy command provisions everything, including the Cloudflare Access login gate. Check the Cloudflare products and limits required for your account before deploying.
 
 Related guides:
 
@@ -15,22 +15,13 @@ Related guides:
 
 ## 1) Clone your OpenSEO repo
 
-Fork `every-app/open-seo` on GitHub if you want a repo you control, then clone it locally:
+Clone this fork, or create your own fork of it and use that clone URL. Run deployment commands only against the Cloudflare account and domain you intend to administer.
 
-```bash
-git clone https://github.com/YOUR_GITHUB_USER/open-seo.git
+```sh
+git clone --branch workbench https://github.com/Mallet-Dev/open-seo.git
 cd open-seo
 corepack enable
-pnpm install
-```
-
-If you do not need a fork, clone the upstream repo instead:
-
-```bash
-git clone https://github.com/every-app/open-seo.git
-cd open-seo
-corepack enable
-pnpm install
+pnpm install --frozen-lockfile
 ```
 
 ## 2) Log in to Cloudflare (once)
@@ -71,8 +62,9 @@ If it doesn't, see Troubleshooting below.
 ## Updating to the latest OpenSEO version
 
 ```bash
-git pull        # or: git fetch upstream && git merge upstream/main, if you forked
-pnpm install
+git switch workbench
+git pull --ff-only origin workbench
+pnpm install --frozen-lockfile
 pnpm deploy:selfhost --yes
 ```
 

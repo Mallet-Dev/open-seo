@@ -6,7 +6,10 @@ import {
   exportPerformance,
 } from "@/client/features/audit/results/export";
 import type { AuditResultsData } from "@/client/features/audit/results/types";
-import { isLighthouseFailure } from "@/client/features/audit/results/AuditResultsTableFilterLogic";
+import {
+  averageMeasuredResponseTime,
+  isLighthouseFailure,
+} from "@/client/features/audit/results/AuditResultsTableFilterLogic";
 import {
   IssuesView,
   resolveIssueSeverity,
@@ -51,28 +54,14 @@ export function ResultsView({
               {blockedCount === 1 ? "page" : "pages"}.
             </span>{" "}
             <span className="text-base-content/70">
-              The site's bot protection challenged our crawler, so those pages
-              couldn't be audited. We don't have a workaround for this yet.
-              Desktop crawlers run from your own machine and usually get past
-              it: try{" "}
-              <a
+              The crawler could not inspect their content.{" "}
+              <button
+                type="button"
                 className="link link-primary"
-                href="https://github.com/PhialsBasement/LibreCrawl"
-                target="_blank"
-                rel="noreferrer"
+                onClick={() => onTabChange("pages")}
               >
-                LibreCrawl
-              </a>{" "}
-              (free, open source) or{" "}
-              <a
-                className="link link-primary"
-                href="https://www.screamingfrog.co.uk/seo-spider/"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Screaming Frog
-              </a>{" "}
-              (free up to 500 URLs).
+                View pages
+              </button>
             </span>
           </p>
         </div>
@@ -134,15 +123,10 @@ function useResultStats(
   pages: AuditResultsData["pages"],
   lighthouse: AuditResultsData["lighthouse"],
 ) {
-  const averageResponseMs = useMemo(() => {
-    if (pages.length === 0) return 0;
-    const total = pages.reduce(
-      (sum: number, page: AuditResultsData["pages"][number]) =>
-        sum + (page.responseTimeMs ?? 0),
-      0,
-    );
-    return Math.round(total / pages.length);
-  }, [pages]);
+  const averageResponseMs = useMemo(
+    () => averageMeasuredResponseTime(pages),
+    [pages],
+  );
 
   const lighthouseSummary = useMemo(() => {
     const failed = lighthouse.filter(
@@ -247,7 +231,7 @@ function StatsStrip({
   pagesCrawled: number;
   issues: AuditResultsData["issues"];
   totalLighthouse: number;
-  averageResponseMs: number;
+  averageResponseMs: number | null;
   lighthouseSummary: {
     failed: number;
     avgPerformance: number | null;
@@ -271,16 +255,29 @@ function StatsStrip({
       valueClass: issues.length === 0 ? "text-success" : "",
       sub: issues.length > 0 && (
         <span className="flex items-center gap-2.5">
-          <SeverityCount count={severityCounts.critical} dotClass="bg-error" />
-          <SeverityCount count={severityCounts.warning} dotClass="bg-warning" />
           <SeverityCount
+            label="critical"
+            count={severityCounts.critical}
+            dotClass="bg-error"
+          />
+          <SeverityCount
+            label="warnings"
+            count={severityCounts.warning}
+            dotClass="bg-warning"
+          />
+          <SeverityCount
+            label="info"
             count={severityCounts.info}
             dotClass="bg-base-content/30"
           />
         </span>
       ),
     },
-    { label: "Avg response", value: `${averageResponseMs}ms` },
+    {
+      label: "Avg response",
+      value:
+        averageResponseMs == null ? "Unavailable" : `${averageResponseMs} ms`,
+    },
   ];
 
   if (totalLighthouse > 0) {
@@ -348,17 +345,19 @@ function StatsStrip({
 }
 
 function SeverityCount({
+  label,
   count,
   dotClass,
 }: {
   count: number;
   dotClass: string;
+  label: string;
 }) {
   if (count === 0) return null;
   return (
     <span className="flex items-center gap-1 tabular-nums">
       <span className={`size-1.5 rounded-full ${dotClass}`} />
-      {count}
+      {count} {label}
     </span>
   );
 }

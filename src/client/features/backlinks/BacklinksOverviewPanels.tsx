@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { RESEARCH_SCOPE_LABELS } from "@/shared/researchScope";
 import { HeaderHelpLabel } from "@/client/features/keywords/components";
 import {
@@ -42,18 +42,36 @@ export function BacklinksOverviewPanels({
           Recent searches
         </Link>
       </div>
-      <div className="flex flex-wrap items-center gap-2 text-sm text-base-content/65">
-        <span className="badge badge-outline">
-          {RESEARCH_SCOPE_LABELS[data.scope]}
-        </span>
-        <span>Target: {data.displayTarget}</span>
-        <span>-</span>
-        <span>Updated {formatRelativeTimestamp(data.fetchedAt)}</span>
-        {/* history/live can't exclude subdomains, so say so rather than imply
+      <div className="flex flex-wrap items-end justify-between gap-3 border-t border-base-300 pt-4">
+        <div className="min-w-0">
+          <h2 className="break-all text-xl font-semibold tracking-tight">
+            {data.displayTarget}
+          </h2>
+          <p className="text-sm text-base-content/65">
+            {RESEARCH_SCOPE_LABELS[data.scope]} · Updated{" "}
+            {formatRelativeTimestamp(data.fetchedAt)}
+            {/* history/live can't exclude subdomains, so say so rather than imply
             the charts match the domain-scoped totals. */}
-        {data.scope === "domain" ? (
-          <span>- Trends include subdomains</span>
-        ) : null}
+            {data.scope === "domain" ? (
+              <span> · Trends include subdomains</span>
+            ) : null}
+          </p>
+        </div>
+        <div className="space-y-1">
+          <Link
+            to="/p/$projectId/domain"
+            params={{ projectId }}
+            preload={false}
+            search={{ domain: data.displayTarget, scope: data.scope }}
+            className="btn btn-sm btn-outline gap-1.5"
+          >
+            Run organic rankings report{" "}
+            <ArrowUpRight className="size-4" aria-hidden />
+          </Link>
+          <p className="text-xs text-base-content/65">
+            A new lookup may use credits.
+          </p>
+        </div>
       </div>
       <OverviewGrid data={data} summaryStats={summaryStats} />
       {data.scope === "exact_url" ? (

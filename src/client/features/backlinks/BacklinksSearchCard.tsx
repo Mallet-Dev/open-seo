@@ -97,6 +97,8 @@ export function BacklinksSearchCard({
                     >
                       <Search className="size-4 text-base-content/60" />
                       <input
+                        aria-label="Domain or URL"
+                        aria-invalid={Boolean(targetError)}
                         placeholder="Enter a domain or URL"
                         value={field.state.value}
                         onChange={(event) => {

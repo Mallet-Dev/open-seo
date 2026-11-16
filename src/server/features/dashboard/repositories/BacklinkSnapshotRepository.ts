@@ -1,16 +1,26 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { backlinkSnapshots } from "@/db/schema";
+import {
+  backlinkRefreshAttempts,
+  backlinkSnapshots,
+  projects,
+} from "@/db/schema";
 
 type BacklinkSnapshot = typeof backlinkSnapshots.$inferSelect;
 
-async function getLatestForProject(
+async function getLatestForDomain(
   projectId: string,
+  domain: string,
 ): Promise<BacklinkSnapshot | null> {
   const rows = await db
     .select()
     .from(backlinkSnapshots)
-    .where(eq(backlinkSnapshots.projectId, projectId))
+    .where(
+      and(
+        eq(backlinkSnapshots.projectId, projectId),
+        eq(backlinkSnapshots.domain, domain),
+      ),
+    )
     // id, not capturedAt: autoincrement is monotonic and immune to the
     // sqlite-vs-pg timestamp text-format difference.
     .orderBy(desc(backlinkSnapshots.id))
@@ -28,7 +38,53 @@ async function insert(
   return row;
 }
 
+async function lastAttempt(projectId: string, domain: string) {
+  const [row] = await db
+    .select({ at: backlinkRefreshAttempts.attemptedAt })
+    .from(backlinkRefreshAttempts)
+    .where(
+      and(
+        eq(backlinkRefreshAttempts.projectId, projectId),
+        eq(backlinkRefreshAttempts.domain, domain),
+      ),
+    );
+  return row?.at ?? null;
+}
+
+async function claim(input: {
+  organizationId: string;
+  projectId: string;
+  domain: string;
+  attemptedAt: string;
+  cutoff: string;
+}): Promise<boolean> {
+  // One statement checks the current authorised domain and arbitrates concurrent workers.
+  const [row] = await db
+    .insert(backlinkRefreshAttempts)
+    .select(
+      sql`select ${projects.id}, ${projects.domain}, ${input.attemptedAt}
+      from ${projects} where ${and(
+        eq(projects.id, input.projectId),
+        eq(projects.organizationId, input.organizationId),
+        eq(projects.domain, input.domain),
+        isNull(projects.archivedAt),
+      )}`,
+    )
+    .onConflictDoUpdate({
+      target: [
+        backlinkRefreshAttempts.projectId,
+        backlinkRefreshAttempts.domain,
+      ],
+      set: { attemptedAt: input.attemptedAt },
+      setWhere: lte(backlinkRefreshAttempts.attemptedAt, input.cutoff),
+    })
+    .returning({ projectId: backlinkRefreshAttempts.projectId });
+  return row !== undefined;
+}
+
 export const BacklinkSnapshotRepository = {
-  getLatestForProject,
+  getLatestForDomain,
+  lastAttempt,
+  claim,
   insert,
 };

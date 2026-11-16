@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { memo, useMemo } from "react";
 import {
   createColumnHelper,
@@ -22,6 +23,8 @@ import type {
 } from "@/client/features/domain/types";
 
 type Props = {
+  projectId: string;
+  locationCode: number;
   domain: string;
   rows: KeywordRow[];
   selectedKeywords: Set<string>;
@@ -35,6 +38,8 @@ type Props = {
 const keywordColumnHelper = createColumnHelper<KeywordRow>();
 
 function DomainKeywordsTableComponent({
+  projectId,
+  locationCode,
   domain,
   rows,
   selectedKeywords,
@@ -59,7 +64,24 @@ function DomainKeywordsTableComponent({
       keywordColumnHelper.accessor("keyword", {
         header: () => "Keyword",
         cell: ({ getValue }) => (
-          <span className="font-medium">{getValue()}</span>
+          <details>
+            <summary className="w-fit cursor-pointer font-medium text-primary hover:underline">
+              {getValue()}
+            </summary>
+            <Link
+              to="/p/$projectId/keywords"
+              params={{ projectId }}
+              search={{ q: getValue(), loc: locationCode }}
+              preload={false}
+              className="link link-primary font-medium"
+              title="Open keyword research in this market"
+            >
+              Run keyword report
+            </Link>
+            <p className="text-xs text-base-content/65">
+              A new lookup may use credits.
+            </p>
+          </details>
         ),
       }),
       keywordColumnHelper.accessor("position", {
@@ -137,7 +159,15 @@ function DomainKeywordsTableComponent({
         cell: ({ getValue }) => <DifficultyBadge value={getValue()} />,
       }),
     ],
-    [currentSortOrder, domain, onSortClick, selectAnchorRef, sortMode],
+    [
+      currentSortOrder,
+      domain,
+      projectId,
+      locationCode,
+      onSortClick,
+      selectAnchorRef,
+      sortMode,
+    ],
   );
   const table = useAppTable({
     data: rows,

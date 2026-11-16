@@ -365,6 +365,8 @@ export function KeywordsTab({
         }
       >
         <DomainKeywordsTable
+          projectId={projectId}
+          locationCode={routeState.locationCode}
           domain={hostname}
           rows={rows}
           selectedKeywords={selectedKeywords}

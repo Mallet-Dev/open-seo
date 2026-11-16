@@ -9,6 +9,30 @@ describe("rank tracking cost estimates", () => {
   it.each([
     {
       method: "live" as const,
+      keywordCount: 1,
+      devices: "desktop" as const,
+      depth: 20,
+      costUsd: 0.00512,
+      costCredits: 6,
+    },
+    {
+      method: "queued" as const,
+      keywordCount: 1,
+      devices: "desktop" as const,
+      depth: 20,
+      costUsd: 0.00154,
+      costCredits: 2,
+    },
+    {
+      method: "queued" as const,
+      keywordCount: 1,
+      devices: "desktop" as const,
+      depth: 15,
+      costUsd: 0.00154,
+      costCredits: 2,
+    },
+    {
+      method: "live" as const,
       keywordCount: 4,
       devices: "desktop" as const,
       depth: 10,
@@ -20,8 +44,8 @@ describe("rank tracking cost estimates", () => {
       keywordCount: 1000,
       devices: "both" as const,
       depth: 40,
-      costUsd: 16.64,
-      costCredits: 18_000,
+      costUsd: 20.48,
+      costCredits: 22_000,
     },
     {
       method: "queued" as const,
@@ -36,8 +60,8 @@ describe("rank tracking cost estimates", () => {
       keywordCount: 1000,
       devices: "both" as const,
       depth: 40,
-      costUsd: 4.992,
-      costCredits: 5_000,
+      costUsd: 6.144,
+      costCredits: 6_160,
     },
   ])(
     "matches per-call billing for $method checks",

@@ -3,6 +3,7 @@ import {
   text,
   integer,
   real,
+  primaryKey,
   uniqueIndex,
   index,
 } from "drizzle-orm/sqlite-core";
@@ -389,8 +390,20 @@ export const projectActivationState = sqliteTable("project_activation_state", {
     .default(sql`(current_timestamp)`),
 });
 
+export const backlinkRefreshAttempts = sqliteTable(
+  "backlink_refresh_attempts",
+  {
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    domain: text("domain").notNull(),
+    attemptedAt: text("attempted_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.projectId, table.domain] })],
+);
+
 // Point-in-time backlink profile summaries for the project's own domain,
-// written by the dashboard's visit-triggered refresh. DataForSEO's summary
+// written by the dashboard's confirmed refresh. DataForSEO's summary
 // already carries new/lost counts, so one snapshot renders a full card;
 // rows accumulate into history for future trend views. The domain is stored
 // per row so a later project-domain change doesn't rewrite history.
@@ -418,6 +431,33 @@ export const backlinkSnapshots = sqliteTable(
     index("backlink_snapshots_project_captured_idx").on(
       table.projectId,
       table.capturedAt,
+    ),
+  ],
+);
+
+// Recent searches are shared by everyone with access to the project.
+export const projectSearchHistory = sqliteTable(
+  "project_search_history",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    feature: text("feature").notNull(),
+    searchKey: text("search_key").notNull(),
+    itemJson: text("item_json").notNull(),
+    searchedAt: integer("searched_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("project_search_history_unique").on(
+      table.projectId,
+      table.feature,
+      table.searchKey,
+    ),
+    index("project_search_history_recent_idx").on(
+      table.projectId,
+      table.feature,
+      table.searchedAt,
     ),
   ],
 );

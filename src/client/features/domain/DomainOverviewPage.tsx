@@ -1,7 +1,8 @@
 /* eslint-disable max-lines, max-lines-per-function -- Domain Overview keeps page-only orchestration colocated to avoid fake indirection. */
 import { useCallback, useEffect, useMemo, useRef, type FormEvent } from "react";
 import { useForm, useStore } from "@tanstack/react-form";
-import { ArrowLeft } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 import {
   DEFAULT_DOMAIN_KEYWORDS_PAGE_SIZE,
@@ -557,10 +558,6 @@ export function DomainOverviewPage({
       <div className="mx-auto max-w-7xl space-y-4">
         <div>
           <h1 className="text-2xl font-semibold">Domain Overview</h1>
-          <p className="text-sm text-base-content/70">
-            Analyze any domain&apos;s SEO profile: traffic, keywords, and
-            backlinks.
-          </p>
         </div>
 
         <DomainSearchCard
@@ -582,6 +579,8 @@ export function DomainOverviewPage({
             {tabControls}
             <DomainOverviewLoadingState />
           </>
+        ) : state.overview === null && routeState.domain ? (
+          tabControls
         ) : state.overview === null ? (
           <div className="space-y-4 pt-1">
             <DomainHistorySection
@@ -594,13 +593,35 @@ export function DomainOverviewPage({
         ) : (
           <>
             {tabControls}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="badge badge-ghost font-medium">
-                {state.overview.displayTarget}
-              </span>
-              <span className="badge badge-outline">
-                {RESEARCH_SCOPE_LABELS[state.overview.scope]}
-              </span>
+            <div className="flex flex-wrap items-end justify-between gap-3 border-t border-base-300 pt-4">
+              <div className="min-w-0">
+                <h2 className="break-all text-xl font-semibold tracking-tight">
+                  {state.overview.displayTarget}
+                </h2>
+                <p className="text-sm text-base-content/65">
+                  {RESEARCH_SCOPE_LABELS[state.overview.scope]} ·{" "}
+                  {LOCATIONS[routeState.locationCode] ??
+                    routeState.locationCode}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <Link
+                  to="/p/$projectId/backlinks"
+                  params={{ projectId }}
+                  preload={false}
+                  search={{
+                    target: state.overview.displayTarget,
+                    scope: state.overview.scope,
+                  }}
+                  className="btn btn-sm btn-outline gap-1.5"
+                >
+                  Run backlink report{" "}
+                  <ArrowUpRight className="size-4" aria-hidden />
+                </Link>
+                <p className="text-xs text-base-content/65">
+                  A new lookup may use credits.
+                </p>
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <StatCard

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useId, useState } from "react";
+import { PromptSources } from "./PromptSources";
 import {
   AlertCircle,
   CheckCircle2,
@@ -23,16 +24,59 @@ type Props = {
 };
 
 export function PromptExplorerResults({ result }: Props) {
+  const [showSources, setShowSources] = useState(false);
   return (
-    <div className="space-y-5">
-      {result.results.map((modelResult) => (
-        <ModelResultCard
-          key={modelResult.model}
-          modelResult={modelResult}
-          highlightBrand={result.highlightBrand}
-        />
-      ))}
-    </div>
+    <section className="ai-comparison" aria-label="Model comparison">
+      <header className="ai-run-context">
+        <div>
+          <h2>{result.prompt}</h2>
+          {result.highlightBrand ? (
+            <p>
+              Brand: <strong>{result.highlightBrand}</strong>
+            </p>
+          ) : null}
+        </div>
+        <time dateTime={result.fetchedAt}>
+          Retrieved{" "}
+          {new Date(result.fetchedAt).toLocaleString(undefined, {
+            timeZoneName: "short",
+          })}
+        </time>
+      </header>
+      <div
+        className="ai-comparison-switch"
+        role="group"
+        aria-label="Comparison view"
+      >
+        <button
+          type="button"
+          aria-pressed={!showSources}
+          onClick={() => setShowSources(false)}
+        >
+          Answers
+        </button>
+        <button
+          type="button"
+          aria-pressed={showSources}
+          onClick={() => setShowSources(true)}
+        >
+          Cited sources
+        </button>
+      </div>
+      {showSources ? (
+        <PromptSources results={result.results} />
+      ) : (
+        <div className="ai-model-grid">
+          {result.results.map((modelResult) => (
+            <ModelResultCard
+              key={modelResult.model}
+              modelResult={modelResult}
+              highlightBrand={result.highlightBrand}
+            />
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -47,9 +91,7 @@ function ModelResultCard({
 
   if (modelResult.status === "error") {
     return (
-      <article
-        className={`overflow-hidden rounded-r-lg border border-base-300 border-l-4 ${accent.border} bg-base-100`}
-      >
+      <article className={`ai-model-card border-l-4 ${accent.border}`}>
         <ModelHeader
           model={modelResult.model}
           modelName={null}
@@ -68,9 +110,7 @@ function ModelResultCard({
   }
 
   return (
-    <article
-      className={`overflow-hidden rounded-r-lg border border-base-300 border-l-4 ${accent.border} bg-base-100`}
-    >
+    <article className={`ai-model-card border-l-4 ${accent.border}`}>
       <ModelHeader
         model={modelResult.model}
         modelName={modelResult.modelName}
@@ -90,7 +130,9 @@ function ModelResultCard({
           citations={modelResult.citations}
           highlightBrand={highlightBrand}
         />
-      ) : null}
+      ) : (
+        <p className="ai-no-citations">No cited sources returned.</p>
+      )}
 
       {modelResult.fanOutQueries.length > 0 ? (
         <div className="border-t border-base-200 px-5 py-3">
@@ -121,6 +163,7 @@ function CitationsList({
   highlightBrand: string | null;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const listId = useId();
 
   const visible = expanded ? citations : citations.slice(0, 3);
   const remaining = citations.length - visible.length;
@@ -130,7 +173,7 @@ function CitationsList({
       <p className="mb-2 text-xs font-medium uppercase tracking-wider text-base-content/50">
         Cited sources ({citations.length})
       </p>
-      <ul className="space-y-1.5">
+      <ul id={listId} className="space-y-1.5">
         {visible.map((citation, index) => (
           <li
             key={`${citation.url}-${index}`}
@@ -162,9 +205,11 @@ function CitationsList({
         <button
           type="button"
           onClick={() => setExpanded((current) => !current)}
+          aria-expanded={expanded}
+          aria-controls={listId}
           className="mt-1.5 text-xs text-base-content/50 hover:text-base-content"
         >
-          {expanded ? "Show less" : `+${remaining} more`}
+          {expanded ? "Show fewer sources" : `Show ${remaining} more sources`}
         </button>
       ) : null}
     </div>

@@ -19,7 +19,7 @@ import {
   isHostedServerAuthMode,
 } from "@/server/lib/runtime-env";
 import { getSetupIssueSummary } from "@/server/lib/setup-status";
-import { isTelemetryOptOutValue } from "@/shared/selfhost-checks";
+import { isSelfHostTelemetryEnabled } from "@/shared/selfhost-checks";
 
 const SELF_HOST_POSTHOG_KEY =
   "phc_xaXj4vE4LikxfvR7q6EHemAYNBSZW4hQkqor7fpf8aGT";
@@ -121,17 +121,12 @@ function isNonProductionBuild() {
 
 async function telemetryIsDisabled() {
   if (await isHostedServerAuthMode()) return true;
-  if (
-    isTelemetryOptOutValue(
-      await getOptionalEnvValue("OPENSEO_TELEMETRY_DISABLED"),
-    )
-  ) {
-    return true;
-  }
-  if (isTelemetryOptOutValue(await getOptionalEnvValue("DO_NOT_TRACK"))) {
-    return true;
-  }
-  return false;
+  const [enabled, disabled, doNotTrack] = await Promise.all([
+    getOptionalEnvValue("OPENSEO_TELEMETRY_ENABLED"),
+    getOptionalEnvValue("OPENSEO_TELEMETRY_DISABLED"),
+    getOptionalEnvValue("DO_NOT_TRACK"),
+  ]);
+  return !isSelfHostTelemetryEnabled(enabled, disabled, doNotTrack);
 }
 
 async function claimHeartbeat(now: Date): Promise<ClaimedHeartbeat | null> {

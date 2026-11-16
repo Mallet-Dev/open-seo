@@ -47,7 +47,12 @@ export function RankTrackingHistoryMatrix({
                 key={r.runId}
                 className="w-24 whitespace-nowrap text-right text-xs font-medium text-base-content/60"
               >
-                {formatDate(r.checkedAt)}
+                <time
+                  dateTime={r.checkedAt}
+                  title={new Date(r.checkedAt).toLocaleString()}
+                >
+                  {formatDate(r.checkedAt)}
+                </time>
               </th>
             ))}
           </tr>
@@ -61,7 +66,7 @@ export function RankTrackingHistoryMatrix({
                   {kw.keyword}
                 </td>
                 {runs.map((r, i) => {
-                  const position = byRun?.get(r.runId) ?? null;
+                  const position = byRun?.get(r.runId);
                   const previous =
                     i > 0 ? (byRun?.get(runs[i - 1].runId) ?? null) : undefined;
                   return (
@@ -83,11 +88,19 @@ function MatrixCell({
   position,
   previous,
 }: {
-  position: number | null;
+  position: number | null | undefined;
   previous: number | null | undefined;
 }) {
-  if (position === null) {
-    return <span className="text-base-content/30">—</span>;
+  if (position == null) {
+    const label =
+      position === undefined
+        ? "No check recorded"
+        : "Not ranked in checked results";
+    return (
+      <span className="text-base-content/65" title={label} aria-label={label}>
+        {position === undefined ? "No check" : "Not ranked"}
+      </span>
+    );
   }
   // Only show a change arrow when both checks ranked (no subtracting through a
   // null, matching the rest of the rank-tracking UI).

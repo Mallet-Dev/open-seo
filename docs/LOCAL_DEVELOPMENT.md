@@ -2,9 +2,9 @@
 
 ## Prerequisites
 
-- Node.js 20+
+- Node.js 22.12 or newer
 - [Corepack](https://nodejs.org/api/corepack.html) (bundled through Node.js 24; install it separately on Node.js 25+)
-- A DataForSEO account/API credentials
+- A DataForSEO account is needed for live search data. You can start the local app without provider credentials.
 
 ## Local Development Workflow
 

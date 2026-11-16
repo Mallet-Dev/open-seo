@@ -1,3 +1,4 @@
+import { getStandardErrorMessage } from "@/client/lib/error-messages";
 import { useCallback, useEffect, useRef, type FormEvent } from "react";
 import {
   useKeywordControlsForm,
@@ -218,6 +219,7 @@ export function useKeywordResearchController(
       filteredRows,
       input,
       saveKeywordsMutate: saveMutation.mutate,
+      resetSaveError: saveMutation.reset,
       setShowSaveDialog: uiState.setShowSaveDialog,
     });
 
@@ -276,6 +278,10 @@ export function useKeywordResearchController(
     showApproximateMatchNotice,
     showFilters: uiState.showFilters,
     showSaveDialog: uiState.showSaveDialog,
+    isSaving: saveMutation.isPending,
+    saveError: saveMutation.error
+      ? getStandardErrorMessage(saveMutation.error, "Save failed. Try again.")
+      : null,
     sortDir: input.sortDir,
     sortField: input.sortField,
     toggleAllRows: handleToggleAllRows,

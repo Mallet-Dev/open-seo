@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { useLocalHistoryStore } from "@/client/hooks/useLocalHistoryStore";
+import { useSharedSearchHistory } from "@/client/hooks/useSharedSearchHistory";
 import { jsonCodec } from "@/shared/json";
 import {
   researchScopeSchema,
@@ -19,8 +19,6 @@ export interface DomainSearchHistoryItem {
 }
 
 type AddDomainSearchInput = Omit<DomainSearchHistoryItem, "timestamp">;
-
-const MAX_HISTORY = 20;
 
 const domainSearchHistoryItemSchema = z
   .object({
@@ -58,27 +56,36 @@ function isSameSearch(
 }
 
 export function useDomainSearchHistory(projectId: string) {
-  const { history, isLoaded, addItem, removeItem, clearItems } =
-    useLocalHistoryStore<DomainSearchHistoryItem, AddDomainSearchInput>({
-      storageKey: `domain-search-history:${projectId}`,
-      maxItems: MAX_HISTORY,
-      parse: (raw) => {
-        const parsed = domainSearchHistoryCodec.safeParse(raw);
-        return parsed.success ? parsed.data : null;
-      },
-      isSameItem: isSameSearch,
-      createItem: (item) => ({
-        ...item,
-        timestamp: Date.now(),
-      }),
-      getItemKey: (item) => item.timestamp,
-    });
+  const historyStore = useSharedSearchHistory<
+    DomainSearchHistoryItem,
+    AddDomainSearchInput
+  >({
+    projectId,
+    feature: "domain",
+    storageKey: `domain-search-history:${projectId}`,
+    parse: (raw) => {
+      const parsed = domainSearchHistoryCodec.safeParse(raw);
+      return parsed.success ? parsed.data : null;
+    },
+    itemSchema: domainSearchHistoryItemSchema,
+    isSameItem: isSameSearch,
+    createItem: (item) => ({ ...item, timestamp: Date.now() }),
+    getItemKey: (item) => item.timestamp,
+    getSearchKey: (item) =>
+      JSON.stringify([
+        item.domain,
+        item.scope,
+        item.sort,
+        item.tab,
+        item.locationCode,
+      ]),
+  });
 
   return {
-    history,
-    isLoaded,
-    addSearch: addItem,
-    clearHistory: clearItems,
-    removeHistoryItem: removeItem,
+    history: historyStore.history,
+    isLoaded: historyStore.isLoaded,
+    addSearch: historyStore.addItem,
+    clearHistory: historyStore.clearItems,
+    removeHistoryItem: historyStore.removeItem,
   };
 }

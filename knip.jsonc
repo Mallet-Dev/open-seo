@@ -20,6 +20,16 @@
     "src/db/pg/schema.ts",
     // Standalone CLI/dev scripts, invoked via package.json scripts
     "scripts/**",
+    // The Maps runner starts separate processes and loads these adapters through Vite aliases.
+    "e2e/maps-fixture/run.ts",
+    "e2e/maps-fixture/serve.ts",
+    "e2e/maps-fixture/vite.config.ts",
+    "e2e/maps-fixture/playwright.config.ts",
+    "e2e/maps-fixture/provider.ts",
+    "e2e/maps-fixture/Shell.tsx",
+    "e2e/maps-fixture/d1.ts",
+    "e2e/maps-fixture/repository.ts",
+    "e2e/maps-fixture/trace.ts",
     // DataForSEO section barrel — consumed via the dynamic import in
     // client.ts (loadDataforseoSections) + property access, which knip
     // can't trace

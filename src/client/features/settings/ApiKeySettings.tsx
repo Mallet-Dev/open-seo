@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -18,9 +19,7 @@ export function ApiKeySettings() {
   const [createdKey, setCreatedKey] = useState<string | null>(null);
 
   const mcpUrl =
-    typeof window === "undefined"
-      ? "https://app.openseo.so/mcp"
-      : `${window.location.origin}/mcp`;
+    typeof window === "undefined" ? "/mcp" : `${window.location.origin}/mcp`;
 
   const apiKeysQuery = useQuery({
     queryKey: ["apiKeys"],
@@ -89,21 +88,12 @@ export function ApiKeySettings() {
       <div className="flex items-start justify-between gap-6">
         <div>
           <p className="text-sm">
-            Authenticate MCP clients when OAuth doesn't work
-          </p>
-          <p className="mt-1 text-sm text-base-content/60">
-            Use this for remote agents like Hermes where the normal login flow
-            doesn't work.
+            Connect an MCP client that cannot use OAuth.
           </p>
           <p className="mt-1 text-sm">
-            <a
-              className="link link-primary"
-              href="https://openseo.so/docs/mcp"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Setup guide
-            </a>
+            <Link to="/ai" className="link link-primary">
+              Agent setup guide
+            </Link>
           </p>
         </div>
         <button

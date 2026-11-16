@@ -5,6 +5,9 @@ import {
   Globe,
   LayoutDashboard,
   Link2,
+  MapPin,
+  MessagesSquare,
+  BarChart3,
   MessageSquare,
   Search,
   Sparkles,
@@ -36,6 +39,21 @@ const projectNavItems = [
     to: "/p/$projectId/rank-tracking" as const,
     label: "Rank Tracking",
     icon: TrendingUp,
+  },
+  {
+    to: "/p/$projectId/performance" as const,
+    label: "Performance",
+    icon: BarChart3,
+  },
+  {
+    to: "/p/$projectId/maps" as const,
+    label: "Maps",
+    icon: MapPin,
+  },
+  {
+    to: "/p/$projectId/reviews" as const,
+    label: "Local Reviews",
+    icon: MessagesSquare,
   },
   {
     to: "/p/$projectId/search-performance" as const,
@@ -91,17 +109,25 @@ function getProjectNavItems(projectId: string) {
   );
 }
 
-// Grouped by scope: "My Site" is the project's own domain (tracked data),
-// "Research" is point-at-anything lookup tools.
 export function getProjectNavGroups(projectId: string) {
   const all = getProjectNavItems(projectId);
   const byPath = (path: (typeof projectNavItems)[number]["to"]) =>
-    all.find((i) => i.to === path)!;
+    all.find((item) => item.to === path)!;
 
   return [
+    { label: "Overview", items: [byPath("/p/$projectId")] },
     {
-      label: "Overview",
-      items: [byPath("/p/$projectId")],
+      label: "Search performance",
+      items: [
+        byPath("/p/$projectId/search-performance"),
+        byPath("/p/$projectId/performance"),
+        byPath("/p/$projectId/rank-tracking"),
+        byPath("/p/$projectId/saved"),
+      ],
+    },
+    {
+      label: "Local search",
+      items: [byPath("/p/$projectId/maps"), byPath("/p/$projectId/reviews")],
     },
     {
       label: "Research",
@@ -109,17 +135,14 @@ export function getProjectNavGroups(projectId: string) {
         byPath("/p/$projectId/keywords"),
         byPath("/p/$projectId/domain"),
         byPath("/p/$projectId/backlinks"),
-        byPath("/p/$projectId/brand-lookup"),
-        byPath("/p/$projectId/prompt-explorer"),
       ],
     },
+    { label: "Technical", items: [byPath("/p/$projectId/audit")] },
     {
-      label: "My Site",
+      label: "AI visibility",
       items: [
-        byPath("/p/$projectId/search-performance"),
-        byPath("/p/$projectId/rank-tracking"),
-        byPath("/p/$projectId/saved"),
-        byPath("/p/$projectId/audit"),
+        byPath("/p/$projectId/brand-lookup"),
+        byPath("/p/$projectId/prompt-explorer"),
       ],
     },
   ];

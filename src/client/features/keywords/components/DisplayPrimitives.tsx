@@ -1,10 +1,11 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useId } from "react";
 import { createPortal } from "react-dom";
 import { sortBy } from "remeda";
 import {
   Area,
   AreaChart,
+  ResponsiveContainer,
   CartesianGrid,
   Tooltip,
   XAxis,
@@ -62,28 +63,9 @@ export function HeaderHelpLabel({
 export function AreaTrendChart({ trend }: { trend: MonthlySearch[] }) {
   const sorted = sortBy(trend, (item) => item.year * 100 + item.month);
   const last12 = sorted.slice(-12);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [chartWidth, setChartWidth] = useState(0);
+  const gradientId = useId();
 
   if (last12.length === 0) return null;
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const update = () => {
-      setChartWidth(container.clientWidth);
-    };
-
-    update();
-
-    const observer = new ResizeObserver(update);
-    observer.observe(container);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
 
   const monthLabels = [
     "Jan",
@@ -107,21 +89,15 @@ export function AreaTrendChart({ trend }: { trend: MonthlySearch[] }) {
   }));
 
   return (
-    <div
-      ref={containerRef}
-      className="w-full h-[210px] min-w-0"
-      aria-label="Search trend chart"
-    >
-      {chartWidth > 0 ? (
+    <div className="w-full h-[210px] min-w-0" aria-label="Search trend chart">
+      <ResponsiveContainer width="100%" height="100%">
         <AreaChart
-          width={chartWidth}
-          height={210}
           data={data}
           margin={{ top: 8, right: 8, left: 0, bottom: 4 }}
           accessibilityLayer
         >
           <defs>
-            <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
               <stop
                 offset="0%"
                 stopColor="var(--color-primary)"
@@ -170,13 +146,13 @@ export function AreaTrendChart({ trend }: { trend: MonthlySearch[] }) {
             name="Search volume"
             stroke="var(--color-primary)"
             strokeWidth={2}
-            fill="url(#trendGrad)"
+            fill={`url(#${gradientId})`}
             isAnimationActive={false}
             dot={{ r: 3, fill: "var(--color-primary)", strokeWidth: 0 }}
             activeDot={{ r: 5, fill: "var(--color-primary)" }}
           />
         </AreaChart>
-      ) : null}
+      </ResponsiveContainer>
     </div>
   );
 }

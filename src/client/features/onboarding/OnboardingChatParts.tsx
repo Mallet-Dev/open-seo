@@ -8,8 +8,6 @@ import {
 import { ArrowUp, Check, Globe, Loader2, Sparkles } from "lucide-react";
 import { FREE_ONBOARDING_QUESTION_LIMIT } from "@/shared/onboardingChat";
 
-const DISCORD_URL = "https://discord.gg/c9uGs3cFXr";
-
 export function SuggestedQuestions({
   questions,
   primaryQuestions = [],
@@ -65,32 +63,12 @@ export function WelcomeMessage({
       </div>
       <div className="min-w-0 flex-1 space-y-3 pt-0.5 text-sm">
         <div className="space-y-3 text-base-content/80">
-          <p>Hey, I’m Sam — welcome to OpenSEO.</p>
           <p>
-            To get full access to OpenSEO, you need to upgrade to the paid plan.
-            But, I’m here if you have any questions.
+            What would you like to learn about <strong>{domain}</strong>?
           </p>
           <p>
-            You can also{" "}
-            <a
-              href={DISCORD_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="link link-primary"
-            >
-              join the Discord
-            </a>{" "}
-            or email{" "}
-            <a href="mailto:ben@openseo.so" className="link link-primary">
-              ben@openseo.so
-            </a>{" "}
-            if you have any questions I can’t help you with.
-          </p>
-          <p>
-            Want me to analyze{" "}
-            <span className="font-medium text-base-content">{domain}</span> and
-            draft a strategy, or do you have questions first? Pick one below to
-            get started.
+            Ask about your competitors, the searches your site appears in, or
+            what the paid plan includes.
           </p>
         </div>
 
@@ -187,16 +165,9 @@ export function UpgradeSidebar({
             {isStartingCheckout ? "Redirecting..." : "Upgrade to continue"}
           </button>
           <p className="text-center text-xs leading-relaxed text-base-content/55">
-            Want advice from other OpenSEO users?{" "}
-            <a
-              href={DISCORD_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="link link-primary"
-            >
-              Join the Discord
+            <a href="/support" className="link link-primary">
+              Help and support
             </a>
-            .
           </p>
         </div>
       </div>

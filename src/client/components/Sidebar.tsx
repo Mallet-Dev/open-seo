@@ -8,6 +8,7 @@ import {
   LogOut,
   MessageCircle,
   Settings,
+  Search,
   User,
   X,
 } from "lucide-react";
@@ -30,7 +31,7 @@ interface SidebarProps {
 }
 
 const navItemBaseClass =
-  "relative flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm text-base-content/70";
+  "workspace-nav-link relative flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-base-content/70";
 
 // Hover uses a lighter tint than the active background (bg-base-300/50) so a
 // hovered item next to the active one stays visually distinct instead of
@@ -66,7 +67,7 @@ function SidebarNavLink({
       {({ isActive }: { isActive: boolean }) => (
         <>
           {isActive ? (
-            <div className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r-full bg-primary" />
+            <div className="absolute left-0 top-1 bottom-1 w-[3px] rounded-r-full bg-secondary" />
           ) : null}
           <Icon className="h-4 w-4 shrink-0" />
           <span className="truncate">{label}</span>
@@ -81,6 +82,13 @@ export function Sidebar({ projectId, onNavigate, onClose }: SidebarProps) {
     ...(projectId ? getProjectNavGroups(projectId) : []),
     connectNavGroup,
   ];
+  const [filter, setFilter] = useState("");
+  const needle = filter.trim().toLocaleLowerCase();
+  const matches = (group: string, item: string) =>
+    `${group} ${item}`.toLocaleLowerCase().includes(needle);
+  const hasMatches = navGroups.some((group) =>
+    group.items.some((item) => matches(group.label, item.label)),
+  );
   const navigate = useNavigate();
   const location = useLocation();
   const onSamRoute = location.pathname.includes("/sam");
@@ -119,13 +127,19 @@ export function Sidebar({ projectId, onNavigate, onClose }: SidebarProps) {
   };
 
   return (
-    <div className="flex h-full w-60 flex-col bg-base-200">
+    <div className="workspace-sidebar flex h-full w-60 flex-col">
       <div className="flex items-center justify-between px-4 pb-2 pt-3">
         <Link
           to="/"
           onClick={onNavigate}
-          className="text-base font-semibold text-base-content"
+          className="workspace-wordmark text-base font-semibold text-base-content"
         >
+          <span className="workspace-brand-mark" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+            <span />
+          </span>
           OpenSEO
         </Link>
         {onClose ? (
@@ -151,7 +165,11 @@ export function Sidebar({ projectId, onNavigate, onClose }: SidebarProps) {
         // Same underline tab idiom as the in-page tab strips (e.g. Domain
         // Overview's Top Keywords / Top Pages).
         <div className="px-3 pb-1">
-          <div role="tablist" className="tabs tabs-border w-full">
+          <div
+            role="group"
+            aria-label="Workspace view"
+            className="tabs tabs-border w-full"
+          >
             <SidebarViewTab
               icon={LayoutGrid}
               label="Browse"
@@ -171,27 +189,69 @@ export function Sidebar({ projectId, onNavigate, onClose }: SidebarProps) {
       {view === "chat" && projectId ? (
         <SamSidebarPanel projectId={projectId} onNavigate={onNavigate} />
       ) : (
-        <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
-          {navGroups.map((group) => (
-            <div key={group.label} className="mb-1">
-              <div className="px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wider text-base-content/40">
-                {group.label}
-              </div>
-              {group.items.map((item) => {
-                const { icon, label, ...linkProps } = item;
-                return (
-                  <SidebarNavLink
-                    key={linkProps.to}
-                    icon={icon}
-                    label={label}
-                    onNavigate={onNavigate}
-                    linkProps={linkProps}
-                  />
-                );
-              })}
-            </div>
-          ))}
-        </nav>
+        <>
+          <label className="workspace-nav-search">
+            <Search
+              className="size-4 shrink-0 text-base-content/65"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              aria-label="Find a tool"
+              placeholder="Find a tool"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape" && filter) {
+                  e.preventDefault();
+                  setFilter("");
+                }
+              }}
+            />
+          </label>
+          <nav
+            aria-label="Workspace tools"
+            className="min-h-0 flex-1 overflow-y-auto px-2 pb-2"
+          >
+            {!hasMatches && (
+              <p role="status" className="px-3 py-2 text-sm">
+                No matching tools.{" "}
+                <button
+                  type="button"
+                  onClick={() => setFilter("")}
+                  className="link link-primary"
+                >
+                  Clear search
+                </button>
+              </p>
+            )}
+            {navGroups
+              .filter((group) =>
+                group.items.some((item) => matches(group.label, item.label)),
+              )
+              .map((group) => (
+                <div key={group.label} className="mb-1">
+                  <div className="px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wider text-base-content/60">
+                    {group.label}
+                  </div>
+                  {group.items
+                    .filter((item) => matches(group.label, item.label))
+                    .map((item) => {
+                      const { icon, label, ...linkProps } = item;
+                      return (
+                        <SidebarNavLink
+                          key={linkProps.to}
+                          icon={icon}
+                          label={label}
+                          onNavigate={onNavigate}
+                          linkProps={linkProps}
+                        />
+                      );
+                    })}
+                </div>
+              ))}
+          </nav>
+        </>
       )}
 
       <SidebarFooter onNavigate={onNavigate} />
@@ -213,8 +273,7 @@ function SidebarViewTab({
   return (
     <button
       type="button"
-      role="tab"
-      aria-selected={active}
+      aria-pressed={active}
       onClick={onClick}
       className={`tab flex-1 gap-1.5 ${active ? "tab-active" : ""}`}
     >

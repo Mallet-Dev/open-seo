@@ -177,8 +177,13 @@ function combineFilters(
   return merged.length > 0 ? merged : undefined;
 }
 
-export async function fetchBacklinksSummary(input: BacklinksRequest) {
-  const response = await backlinksApi(classifyBacklinksError).summaryLive([
+export async function fetchBacklinksSummary(
+  input: BacklinksRequest & { beforeRequest?: () => Promise<void> },
+) {
+  const response = await backlinksApi(
+    classifyBacklinksError,
+    input.beforeRequest,
+  ).summaryLive([
     new BacklinksSummaryLiveRequestInfo(buildCommonPayload(input)),
   ]);
   const task = assertOk(response, assertOptions("/v3/backlinks/summary/live"));

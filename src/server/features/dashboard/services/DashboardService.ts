@@ -1,3 +1,10 @@
+import { AppError } from "@/server/lib/errors";
+import { isHostedServerAuthMode } from "@/server/lib/runtime-env";
+import {
+  applyBillingMarkupUsd,
+  AUTUMN_SEO_DATA_CREDITS_PER_USD,
+} from "@/shared/billing";
+import type { DashboardBacklinkRefreshInput } from "@/types/schemas/dashboard";
 import type { BillingCustomerContext } from "@/server/billing/subscription";
 import { ActivationRepository } from "@/server/features/activation/repositories/ActivationRepository";
 import { AuditRepository } from "@/server/features/audit/repositories/AuditRepository";
@@ -12,8 +19,7 @@ import {
   normalizeBacklinksTarget,
 } from "@/server/lib/dataforseo";
 
-// Daily cadence: fresh numbers each visit without per-visit spend; a dormant
-// project costs nothing because refreshes are visit-triggered.
+// A paid attempt stays held for the daily cadence, including uncertain outcomes.
 const SNAPSHOT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 // Bounds the per-config result reads on the overview path; projects rarely
 // have more than a couple of configs.
@@ -37,6 +43,9 @@ export type DashboardActivation = {
 
 type DashboardRankSummary = {
   trackedKeywords: number;
+  includedConfigCount: number;
+  totalConfigCount: number;
+  observedPositions: number;
   improved: number;
   declined: number;
   top10: number;
@@ -73,7 +82,24 @@ type DashboardOverview = {
   rank: DashboardRankSummary | null;
   audit: DashboardAuditSummary | null;
   backlinks: DashboardBacklinkSummary | null;
+  backlinkRefresh: ReturnType<typeof estimateBacklinkRefresh> & {
+    nextAttemptAt: string | null;
+  };
 };
+
+function estimateBacklinkRefresh(hosted: boolean) {
+  // One standard request with a single result: https://dataforseo.com/pricing/backlinks/backlinks
+  const providerUsd = 0.024036;
+  const estimatedChargeUsd = hosted
+    ? applyBillingMarkupUsd(providerUsd)
+    : providerUsd;
+  return {
+    estimatedChargeUsd,
+    estimatedCredits: hosted
+      ? Math.ceil(estimatedChargeUsd * AUTUMN_SEO_DATA_CREDITS_PER_USD)
+      : null,
+  };
+}
 
 async function getActivation(input: {
   projectId: string;
@@ -108,12 +134,30 @@ async function getOverview(input: {
   projectId: string;
   domain: string | null;
 }): Promise<DashboardOverview> {
-  const [rank, audit, backlinks] = await Promise.all([
+  const [rank, audit, backlinks, lastAttempt, hosted] = await Promise.all([
     getRankSummary(input.projectId),
     getAuditSummary(input.projectId),
     getBacklinkSummary(input.projectId, input.domain),
+    input.domain
+      ? BacklinkSnapshotRepository.lastAttempt(input.projectId, input.domain)
+      : null,
+    isHostedServerAuthMode(),
   ]);
-  return { rank, audit, backlinks };
+  const nextAttemptMs = lastAttempt
+    ? Date.parse(lastAttempt) + SNAPSHOT_MAX_AGE_MS
+    : 0;
+  return {
+    rank,
+    audit,
+    backlinks,
+    backlinkRefresh: {
+      ...estimateBacklinkRefresh(hosted),
+      nextAttemptAt:
+        nextAttemptMs > Date.now()
+          ? new Date(nextAttemptMs).toISOString()
+          : null,
+    },
+  };
 }
 
 async function getRankSummary(
@@ -130,6 +174,9 @@ async function getRankSummary(
 
   const summary: DashboardRankSummary = {
     trackedKeywords: 0,
+    includedConfigCount: results.length,
+    totalConfigCount: configs.length,
+    observedPositions: 0,
     improved: 0,
     declined: 0,
     top10: 0,
@@ -148,6 +195,7 @@ async function getRankSummary(
     for (const row of result.rows) {
       for (const device of ["desktop", "mobile"] as const) {
         const { position, previousPosition } = row[device];
+        if (position !== null) summary.observedPositions += 1;
         if (position !== null && position <= 10) summary.top10 += 1;
         if (position === null || previousPosition === null) continue;
         // Lower position number = better ranking.
@@ -201,9 +249,11 @@ async function getBacklinkSummary(
   domain: string | null,
 ): Promise<DashboardBacklinkSummary | null> {
   if (!domain) return null;
-  const snapshot =
-    await BacklinkSnapshotRepository.getLatestForProject(projectId);
-  if (!snapshot || snapshot.domain !== domain) return null;
+  const snapshot = await BacklinkSnapshotRepository.getLatestForDomain(
+    projectId,
+    domain,
+  );
+  if (!snapshot) return null;
   return {
     domain: snapshot.domain,
     rank: snapshot.rank,
@@ -218,65 +268,58 @@ async function getBacklinkSummary(
   };
 }
 
-/**
- * Visit-triggered snapshot refresh. Fetches only the DataForSEO backlinks
- * summary (not the history endpoint the backlinks page also pays for) and is
- * a no-op while the latest snapshot for the current domain is under a day
- * old. Concurrent loads racing the freshness check can each pay a metered
- * call — every call is metered, so the race duplicates customer spend on
- * identical data but never leaks revenue; accepted for now. On a fetch
- * failure with a stale snapshot in hand, the stale snapshot is returned
- * rather than surfacing an error card.
- */
-async function ensureBacklinkSnapshot(input: {
-  projectId: string;
-  domain: string | null;
-  billingCustomer: BillingCustomerContext;
-}): Promise<DashboardBacklinkSummary | null> {
+async function ensureBacklinkSnapshot(
+  input: DashboardBacklinkRefreshInput & {
+    domain: string | null;
+    billingCustomer: BillingCustomerContext;
+  },
+): Promise<DashboardBacklinkSummary | null> {
   const { projectId, domain } = input;
-  if (!domain) return null;
-
-  const latest =
-    await BacklinkSnapshotRepository.getLatestForProject(projectId);
-  const latestMatchesDomain = latest !== null && latest.domain === domain;
-  if (latest && latestMatchesDomain && isSnapshotFresh(latest.capturedAt)) {
-    return getBacklinkSummary(projectId, domain);
+  const estimate = estimateBacklinkRefresh(await isHostedServerAuthMode());
+  if (
+    !domain ||
+    input.confirmedDomain !== domain ||
+    estimate.estimatedChargeUsd !== input.estimatedChargeUsd ||
+    estimate.estimatedCredits !== input.estimatedCredits
+  ) {
+    throw new AppError("CONFLICT");
   }
+  const latest = await getBacklinkSummary(projectId, domain);
+  if (latest && !latest.stale) return latest;
 
-  // Dashboard totals cover the whole site, subdomains included.
   const normalized = normalizeBacklinksTarget(domain, { scope: "subdomains" });
   const dataforseo = createDataforseoClient(input.billingCustomer);
-
-  try {
-    const summary = await dataforseo.backlinks.summary({
-      target: normalized.apiTarget,
-      includeSubdomains: normalized.includeSubdomains,
-    });
-    await BacklinkSnapshotRepository.insert({
-      projectId,
-      domain,
-      rank: summary.rank ?? null,
-      backlinks: summary.backlinks ?? null,
-      referringDomains: summary.referring_domains ?? null,
-      brokenBacklinks: summary.broken_backlinks ?? null,
-      newBacklinks: summary.new_backlinks ?? null,
-      lostBacklinks: summary.lost_backlinks ?? null,
-      newReferringDomains:
-        summary.new_referring_domains ?? summary.new_reffering_domains ?? null,
-      lostReferringDomains:
-        summary.lost_referring_domains ??
-        summary.lost_reffering_domains ??
-        null,
-      capturedAt: new Date().toISOString(),
-    });
-  } catch (error) {
-    if (latestMatchesDomain) {
-      console.error("dashboard: backlink snapshot refresh failed", error);
-      return getBacklinkSummary(projectId, domain);
-    }
-    throw error;
-  }
-
+  const summary = await dataforseo.backlinks.summary({
+    target: normalized.apiTarget,
+    includeSubdomains: normalized.includeSubdomains,
+    minimumCredits: estimate.estimatedCredits ?? undefined,
+    beforeRequest: async () => {
+      const now = Date.now();
+      const claimed = await BacklinkSnapshotRepository.claim({
+        projectId,
+        domain,
+        organizationId: input.billingCustomer.organizationId,
+        attemptedAt: new Date(now).toISOString(),
+        cutoff: new Date(now - SNAPSHOT_MAX_AGE_MS).toISOString(),
+      });
+      if (!claimed) throw new AppError("CONFLICT");
+    },
+  });
+  await BacklinkSnapshotRepository.insert({
+    projectId,
+    domain,
+    rank: summary.rank ?? null,
+    backlinks: summary.backlinks ?? null,
+    referringDomains: summary.referring_domains ?? null,
+    brokenBacklinks: summary.broken_backlinks ?? null,
+    newBacklinks: summary.new_backlinks ?? null,
+    lostBacklinks: summary.lost_backlinks ?? null,
+    newReferringDomains:
+      summary.new_referring_domains ?? summary.new_reffering_domains ?? null,
+    lostReferringDomains:
+      summary.lost_referring_domains ?? summary.lost_reffering_domains ?? null,
+    capturedAt: new Date().toISOString(),
+  });
   return getBacklinkSummary(projectId, domain);
 }
 

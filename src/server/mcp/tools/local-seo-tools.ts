@@ -1,11 +1,15 @@
+import {
+  buildRankGridPoints,
+  rankGridZoom,
+  type GridPoint,
+} from "@/shared/maps-grid";
+import { BusinessReviewsService } from "@/server/features/local-business/services/BusinessReviewsService";
+import { pollBusinessTask } from "@/server/features/local-business/services/pollBusinessTask";
 /* eslint-disable max-lines */
 import { z } from "zod";
 import {
   createDataforseoClient,
-  fetchBusinessDataTaskResult,
   fetchBusinessListingsCategories,
-  type BusinessTaskEndpoint,
-  type BusinessTaskOutcome,
 } from "@/server/lib/dataforseo";
 import { AppError } from "@/server/lib/errors";
 import { buildCacheKey, getCached, setCached } from "@/server/lib/r2-cache";
@@ -73,39 +77,6 @@ const businessLocationInputSchema = {
     ),
   languageCode: languageCodeSchema.optional(),
 } as const;
-
-// DataForSEO queues these tasks; high priority normally settles them inside the
-// poll window, and the tool hands back a resumable taskId when it doesn't.
-const TASK_POLL_ATTEMPTS = 6;
-const TASK_POLL_INTERVAL_MS = 4000;
-
-function wait(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function pollBusinessTask(
-  input: { endpoint: BusinessTaskEndpoint; taskId: string },
-  publicTaskId: string,
-): Promise<BusinessTaskOutcome> {
-  try {
-    for (let attempt = 0; attempt < TASK_POLL_ATTEMPTS; attempt++) {
-      if (attempt > 0) await wait(TASK_POLL_INTERVAL_MS);
-      const outcome = await fetchBusinessDataTaskResult(input);
-      if (outcome.status === "completed") return outcome;
-    }
-    return { status: "pending", result: null };
-  } catch (error) {
-    // The task was already paid for at post; don't let a collection failure
-    // discard the only handle to it.
-    if (error instanceof AppError) {
-      throw new AppError(
-        error.code,
-        `${error.message} The queued task is still collectable — call again with taskId "${publicTaskId}" at no extra cost.`,
-      );
-    }
-    throw error;
-  }
-}
 
 function readString(source: unknown, key: string): string | null {
   const value = readPath(source, key);
@@ -291,29 +262,6 @@ type GetBusinessReviewsArgs = z.infer<
   z.ZodObject<typeof getBusinessReviewsInputSchema>
 >;
 
-const REVIEWS_TASK_ID_PATTERN = /^(google|extended):(.+)$/;
-
-function encodeReviewsTaskId(includeOtherSources: boolean, id: string): string {
-  return `${includeOtherSources ? "extended" : "google"}:${id}`;
-}
-
-function parseReviewsTaskId(taskId: string): {
-  endpoint: BusinessTaskEndpoint;
-  taskId: string;
-} {
-  const match = REVIEWS_TASK_ID_PATTERN.exec(taskId);
-  if (!match) {
-    throw new AppError(
-      "VALIDATION_ERROR",
-      'taskId must be the value this tool returned, formatted as "google:<id>" or "extended:<id>".',
-    );
-  }
-  return {
-    endpoint: match[1] === "extended" ? "extended_reviews" : "reviews",
-    taskId: match[2] ?? "",
-  };
-}
-
 // Full review rows carry ~200-char base64 review URLs, avatar URLs, and
 // xpaths; the fields below are what review-gap analysis actually reads.
 const REVIEW_ROW_FIELDS = [
@@ -380,33 +328,22 @@ export const getBusinessReviewsTool = {
     },
   },
   handler: withMcpProjectAuth(async (args: GetBusinessReviewsArgs, context) => {
-    const includeOtherSources = args.includeOtherSources ?? false;
-    let task: { endpoint: BusinessTaskEndpoint; taskId: string };
-    let publicTaskId: string;
-
-    if (args.taskId) {
-      task = parseReviewsTaskId(args.taskId);
-      publicTaskId = args.taskId;
-    } else {
-      const identifier = resolveBusinessIdentifier(args);
-      const client = createDataforseoClient(context.billing);
-      // Only the post is metered; the polling below collects for free.
-      const postedId = await client.business.reviewsTaskPost({
-        ...identifier,
-        ...resolveBusinessLocation(args, context.project),
-        depth: args.depth ?? 20,
-        // The fetcher's extended branch has no sort_by and ignores this.
-        sortBy: args.sortBy ?? "newest",
-        includeOtherSources,
-      });
-      task = {
-        endpoint: includeOtherSources ? "extended_reviews" : "reviews",
-        taskId: postedId,
-      };
-      publicTaskId = encodeReviewsTaskId(includeOtherSources, postedId);
-    }
-
-    const outcome = await pollBusinessTask(task, publicTaskId);
+    const { taskId: publicTaskId, outcome } =
+      await BusinessReviewsService.collect(
+        args.taskId
+          ? { mode: "resume", taskId: args.taskId }
+          : {
+              mode: "start",
+              request: {
+                ...resolveBusinessIdentifier(args),
+                ...resolveBusinessLocation(args, context.project),
+                depth: args.depth ?? 20,
+                sortBy: args.sortBy ?? "newest",
+                includeOtherSources: args.includeOtherSources ?? false,
+              },
+            },
+        context.billing,
+      );
     if (outcome.status === "pending") {
       return mcpResponse({
         text: `Review collection is still running. Call get_business_reviews again with taskId "${publicTaskId}" in 30-60 seconds — resuming charges no extra credits.`,
@@ -671,36 +608,8 @@ export const listBusinessCategoriesTool = {
 // get_local_rank_grid
 // ---------------------------------------------------------------------------
 
-// Degrees per kilometre. Longitude degrees shrink with latitude; the cosine is
-// floored so a near-polar center can't blow the spacing up.
-const KM_PER_DEGREE_LATITUDE = 110.574;
-const KM_PER_DEGREE_LONGITUDE = 111.32;
-const MIN_LONGITUDE_COSINE = 0.01;
 const RANK_GRID_DEPTH = 20;
 const RANK_GRID_CONCURRENCY = 3;
-// Without an explicit zoom DataForSEO infers one per coordinate, which yields
-// "No Search Results" for some points and makes ranks incomparable across the
-// grid. A fixed zoom fails the other way: a mobile viewport at zoom 14 spans
-// only ~±1.5 km east-west at mid latitudes, so a business one 2-3 km grid step
-// to the side falls outside the viewport and reads as "not ranked" (verified
-// live: a rank-3 business vanished at zoom 14 and reappeared at zoom 12).
-// Derive the zoom from the spacing instead: a world tile is 40075·cos(lat)/2^z
-// km wide and a portrait viewport ~1.5 tiles, so the largest zoom whose
-// viewport still spans ~1.25× the spacing is log2(24045·cos(lat)/spacing).
-const RANK_GRID_ZOOM_NUMERATOR_KM = 24045;
-const MIN_RANK_GRID_ZOOM = 4;
-const MAX_RANK_GRID_ZOOM = 18;
-
-function rankGridZoom(spacingKm: number, latitude: number): number {
-  const cosine = Math.max(
-    Math.abs(Math.cos((latitude * Math.PI) / 180)),
-    MIN_LONGITUDE_COSINE,
-  );
-  const zoom = Math.floor(
-    Math.log2((RANK_GRID_ZOOM_NUMERATOR_KM * cosine) / spacingKm),
-  );
-  return Math.min(MAX_RANK_GRID_ZOOM, Math.max(MIN_RANK_GRID_ZOOM, zoom));
-}
 
 const getLocalRankGridInputSchema = {
   projectId: projectIdSchema,
@@ -777,13 +686,6 @@ type GetLocalRankGridArgs = z.infer<
   z.ZodObject<typeof getLocalRankGridInputSchema>
 >;
 
-type GridPoint = {
-  row: number;
-  col: number;
-  latitude: number;
-  longitude: number;
-};
-
 type GridPointResult = GridPoint & {
   rank: number | null;
   // How many businesses the SERP returned there, and who ranked first: a null
@@ -793,40 +695,6 @@ type GridPointResult = GridPoint & {
   topResult?: { title: string | null; cid: string | null } | null;
   error?: boolean;
 };
-
-function buildRankGridPoints(
-  center: { latitude: number; longitude: number },
-  gridSize: number,
-  spacingKm: number,
-): GridPoint[] {
-  const middle = (gridSize - 1) / 2;
-  const latitudeStep = spacingKm / KM_PER_DEGREE_LATITUDE;
-  const longitudeStep =
-    spacingKm /
-    (KM_PER_DEGREE_LONGITUDE *
-      Math.max(
-        Math.abs(Math.cos((center.latitude * Math.PI) / 180)),
-        MIN_LONGITUDE_COSINE,
-      ));
-
-  const points: GridPoint[] = [];
-  for (let row = 0; row < gridSize; row++) {
-    for (let col = 0; col < gridSize; col++) {
-      points.push({
-        row,
-        col,
-        // Row 0 is the northernmost line so the rendered grid reads like a map.
-        latitude: Number(
-          (center.latitude + (middle - row) * latitudeStep).toFixed(7),
-        ),
-        longitude: Number(
-          (center.longitude + (col - middle) * longitudeStep).toFixed(7),
-        ),
-      });
-    }
-  }
-  return points;
-}
 
 function matchGridItem(
   items: unknown[],

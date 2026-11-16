@@ -1,3 +1,5 @@
+import { RetainedSearchPerformance } from "./RetainedSearchPerformance";
+import { getRetainedSearchSource } from "@/serverFunctions/searchPerformance";
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
@@ -117,7 +119,7 @@ function tableQueryOptions(
   });
 }
 
-export function SearchPerformancePage({ projectId }: { projectId: string }) {
+function LiveSearchPerformancePage({ projectId }: { projectId: string }) {
   const queryClient = useQueryClient();
   const [range, setRange] =
     useState<SearchPerformanceDateRange>("last_28_days");
@@ -353,6 +355,73 @@ export function SearchPerformancePage({ projectId }: { projectId: string }) {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+export function SearchPerformancePage({ projectId }: { projectId: string }) {
+  return <SearchPerformanceSource key={projectId} projectId={projectId} />;
+}
+function SearchPerformanceSource({ projectId }: { projectId: string }) {
+  const [chosen, setChosen] = useState<"retained" | "live" | null>(null);
+  const source = useQuery({
+    queryKey: ["retainedSearchSource", projectId],
+    queryFn: () => getRetainedSearchSource({ data: { projectId } }),
+  });
+  if (source.isPending) return <SearchPerformanceLoadingState />;
+  if (source.isError)
+    return (
+      <div role="alert" className="p-6 text-error">
+        {getStandardErrorMessage(source.error)}
+      </div>
+    );
+  const selected = chosen ?? (source.data?.revision ? "retained" : "live");
+  return (
+    <div
+      className={
+        selected === "retained"
+          ? "search-workspace retained-workspace"
+          : undefined
+      }
+    >
+      <div className="retained-source-switch mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 pt-4 md:px-0">
+        <button
+          aria-pressed={selected === "retained"}
+          className={`btn btn-sm ${selected === "retained" ? "btn-neutral" : "btn-ghost"}`}
+          onClick={() => setChosen("retained")}
+        >
+          Saved data
+        </button>
+        <button
+          aria-pressed={selected === "live"}
+          className={`btn btn-sm ${selected === "live" ? "btn-neutral" : "btn-ghost"}`}
+          onClick={() => setChosen("live")}
+        >
+          Google connection
+        </button>
+      </div>
+      {selected === "live" ? (
+        <LiveSearchPerformancePage key={projectId} projectId={projectId} />
+      ) : (
+        <div className="retained-content">
+          <div className="space-y-5">
+            <header className="search-workspace-header">
+              <div>
+                <span className="maps-eyebrow">
+                  First-party search / Search Console
+                </span>
+                <h1>Search performance</h1>
+              </div>
+              <span className="retained-source-pill">Saved observations</span>
+            </header>
+            <RetainedSearchPerformance
+              key={`${projectId}:${source.data?.property ?? "unbound"}`}
+              projectId={projectId}
+              source={source.data}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

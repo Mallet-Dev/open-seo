@@ -73,6 +73,7 @@ export function BrandLookupSearchCard({
               <Search className="size-4 text-base-content/60" />
               <input
                 type="text"
+                aria-label="Brand name or domain"
                 placeholder="Enter a brand name or domain"
                 value={query}
                 maxLength={BRAND_LOOKUP_MAX_INPUT_LENGTH}
@@ -134,14 +135,14 @@ export function BrandLookupSearchCard({
 
         <div className="flex flex-wrap items-center gap-3 text-xs text-base-content/60">
           <p className="tabular-nums">
-            Est.{" "}
+            Estimated{" "}
             <span className="font-medium text-base-content/80">
-              ${BRAND_LOOKUP_DISPLAYED_COST_USD.toFixed(2)}
+              US${BRAND_LOOKUP_DISPLAYED_COST_USD.toFixed(2)}
             </span>
             {hasCompetitors ? (
               <span>
                 {" "}
-                plus ~$
+                plus about US$
                 {BRAND_LOOKUP_COMPETITOR_DISPLAYED_COST_USD.toFixed(2)} to
                 compare competitors
               </span>

@@ -1,10 +1,11 @@
+import { Link } from "@tanstack/react-router";
 import { memo, useMemo } from "react";
 import { createColumnHelper, type ColumnDef } from "@tanstack/react-table";
 import {
   AppDataTable,
   useAppTable,
 } from "@/client/components/table/AppDataTable";
-import { ExternalUrlCell } from "@/client/components/table/url";
+import { ExternalUrlCell, resolveUrlHref } from "@/client/components/table/url";
 import { SortableHeader } from "@/client/features/domain/components/SortableHeader";
 import { useDomainRenderDebug } from "@/client/features/domain/domainDebug";
 import {
@@ -19,6 +20,8 @@ import type {
 } from "@/client/features/domain/types";
 
 type Props = {
+  projectId: string;
+  locationCode: number;
   domain: string;
   rows: PageRow[];
   sortMode: DomainSortMode;
@@ -29,6 +32,8 @@ type Props = {
 const pageColumnHelper = createColumnHelper<PageRow>();
 
 function DomainPagesTableComponent({
+  projectId,
+  locationCode,
   domain,
   rows,
   sortMode,
@@ -73,17 +78,42 @@ function DomainPagesTableComponent({
             onClick={() => onSortClick("volume")}
           />
         ),
-        cell: ({ getValue }) => formatNumber(getValue()),
+        cell: ({ getValue, row }) => {
+          const target = resolveUrlHref(row.original.page, domain);
+          const count = getValue();
+          return target && count != null && count > 0 ? (
+            <details>
+              <summary className="w-fit cursor-pointer font-medium text-primary hover:underline">
+                {formatNumber(count)}
+              </summary>
+              <Link
+                to="/p/$projectId/domain"
+                params={{ projectId }}
+                preload={false}
+                search={{
+                  domain: target,
+                  scope: "exact_url",
+                  loc: locationCode,
+                }}
+                className="link link-primary tabular-nums"
+                aria-label={`Run keyword report for ${row.original.page}`}
+              >
+                Run page keyword report
+              </Link>
+              <p className="text-xs text-base-content/65">
+                A new lookup may use credits.
+              </p>
+            </details>
+          ) : (
+            formatNumber(count)
+          );
+        },
       }),
     ],
-    [currentSortOrder, domain, onSortClick, sortMode],
+    [currentSortOrder, domain, projectId, locationCode, onSortClick, sortMode],
   );
-  // Memoized on purpose: a fresh slice every render defeats TanStack Table's
-  // data-keyed memo, so _autoResetPageIndex fires each render and its setState
-  // schedules another one — an unbounded render loop that freezes the tab.
-  const tableData = useMemo(() => rows.slice(0, 100), [rows]);
   const table = useAppTable({
-    data: tableData,
+    data: rows,
     columns,
   });
   useDomainRenderDebug("DomainPagesTable", {

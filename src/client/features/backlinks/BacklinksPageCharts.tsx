@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
 import {
   CartesianGrid,
   Legend,
   Line,
   LineChart,
+  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
@@ -20,22 +20,14 @@ export function BacklinksTrendChart({
 }: {
   data: BacklinksOverviewData["trends"];
 }) {
-  const { containerRef, chartWidth } = useChartWidth();
-
   if (data.length === 0) {
     return <EmptyChartState />;
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="h-56 min-w-0"
-      aria-label="Backlink trend chart"
-    >
-      {chartWidth > 0 ? (
+    <div className="h-56 min-w-0" aria-label="Backlink trend chart">
+      <ResponsiveContainer width="100%" height="100%">
         <LineChart
-          width={chartWidth}
-          height={224}
           data={data}
           margin={{ left: 8, right: 8, top: 8, bottom: 0 }}
         >
@@ -65,7 +57,7 @@ export function BacklinksTrendChart({
             yAxisId="left"
             type="monotone"
             dataKey="backlinks"
-            stroke="#2563eb"
+            stroke="var(--color-primary)"
             strokeWidth={2}
             dot={false}
             name="Backlinks"
@@ -74,13 +66,14 @@ export function BacklinksTrendChart({
             yAxisId="right"
             type="monotone"
             dataKey="referringDomains"
-            stroke="#14b8a6"
+            stroke="#ef7625"
+            strokeDasharray="5 3"
             strokeWidth={2}
             dot={false}
             name="Referring domains"
           />
         </LineChart>
-      ) : null}
+      </ResponsiveContainer>
     </div>
   );
 }
@@ -90,22 +83,14 @@ export function BacklinksNewLostChart({
 }: {
   data: BacklinksOverviewData["newLostTrends"];
 }) {
-  const { containerRef, chartWidth } = useChartWidth();
-
   if (data.length === 0) {
     return <EmptyChartState />;
   }
 
   return (
-    <div
-      ref={containerRef}
-      className="h-56 min-w-0"
-      aria-label="New and lost backlinks chart"
-    >
-      {chartWidth > 0 ? (
+    <div className="h-56 min-w-0" aria-label="New and lost backlinks chart">
+      <ResponsiveContainer width="100%" height="100%">
         <LineChart
-          width={chartWidth}
-          height={224}
           data={data}
           margin={{ left: 8, right: 8, top: 8, bottom: 0 }}
         >
@@ -142,36 +127,9 @@ export function BacklinksNewLostChart({
             name="New backlinks"
           />
         </LineChart>
-      ) : null}
+      </ResponsiveContainer>
     </div>
   );
-}
-
-function useChartWidth() {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [chartWidth, setChartWidth] = useState(0);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) {
-      return;
-    }
-
-    const updateWidth = () => {
-      setChartWidth(container.clientWidth);
-    };
-
-    updateWidth();
-
-    const observer = new ResizeObserver(updateWidth);
-    observer.observe(container);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, []);
-
-  return { containerRef, chartWidth };
 }
 
 function EmptyChartState() {

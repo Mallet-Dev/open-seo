@@ -149,7 +149,7 @@ function KeywordsCell({
               params={{ projectId }}
               search={{ q: keyword.question, hb: brand || undefined }}
               className="group/kw inline-flex items-baseline gap-2 text-xs"
-              title="Run this prompt in Prompt Explorer"
+              title="Explore prompt"
             >
               <span className="text-base-content/80 group-hover/kw:underline">
                 {keyword.question}
@@ -315,18 +315,16 @@ export function buildTopQueriesColumns({
       header: () => <span className="sr-only">Actions</span>,
       meta: { cellClassName: "w-px whitespace-nowrap text-right align-top" },
       cell: ({ row }) => (
-        <span
-          className="tooltip tooltip-left opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
-          data-tip="Run this prompt in Prompt Explorer"
-        >
+        <span className="inline-flex">
           <Link
             to="/p/$projectId/prompt-explorer"
             params={{ projectId }}
             search={{ q: row.original.question, hb: brand || undefined }}
             className="btn btn-ghost btn-xs gap-1"
-            aria-label="Run this prompt in Prompt Explorer"
+            aria-label="Explore prompt"
           >
-            <Sparkles className="size-3.5" />
+            <Sparkles aria-hidden="true" className="size-3.5" />
+            Explore prompt
           </Link>
         </span>
       ),

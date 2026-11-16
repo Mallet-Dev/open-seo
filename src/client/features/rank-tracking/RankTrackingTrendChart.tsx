@@ -180,11 +180,11 @@ export function useChartWidth() {
   return { containerRef, width };
 }
 
-/** 30d / 90d / All range toggle shared by the modal and overview charts. */
+/** 30d / 90d / 2y range toggle shared by the modal and overview charts. */
 const TREND_RANGES = [
   { label: "30d", sinceDays: 30 },
   { label: "90d", sinceDays: 90 },
-  { label: "All", sinceDays: 730 },
+  { label: "2y", sinceDays: 730 },
 ] as const;
 
 export function TrendRangeToggle({
@@ -203,6 +203,7 @@ export function TrendRangeToggle({
           className={`btn btn-xs join-item ${
             value === range.sinceDays ? "btn-active" : "btn-ghost"
           }`}
+          aria-pressed={range.sinceDays === value}
           onClick={() => onChange(range.sinceDays)}
         >
           {range.label}

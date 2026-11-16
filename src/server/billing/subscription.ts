@@ -208,11 +208,12 @@ export async function checkUsageCreditsDepleted(
  */
 export async function assertUsageCreditsAvailable(
   customerId: string,
+  minimumCredits = 1,
 ): Promise<{ monthlyRemaining: number }> {
   const { monthlyRemaining, topupRemaining } =
     await getUsageCreditsRemaining(customerId);
 
-  if (monthlyRemaining + topupRemaining <= 0) {
+  if (monthlyRemaining + topupRemaining < minimumCredits) {
     throw new AppError("INSUFFICIENT_CREDITS");
   }
 

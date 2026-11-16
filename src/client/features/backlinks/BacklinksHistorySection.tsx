@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Clock, History, Link2, X } from "lucide-react";
+import { Clock, History, X } from "lucide-react";
 import type { BacklinksSearchHistoryItem } from "@/client/hooks/useBacklinksSearchHistory";
 import { RESEARCH_SCOPE_LABELS } from "@/shared/researchScope";
 import { toScopeSearchParam } from "@/shared/researchScope";
@@ -23,11 +23,9 @@ export function BacklinksHistorySection({
 
   if (history.length === 0) {
     return (
-      <section className="rounded-2xl border border-dashed border-base-300 bg-base-100/70 p-6 text-center text-base-content/55 space-y-2">
-        <Link2 className="size-9 mx-auto opacity-35" />
-        <p className="text-base font-medium text-base-content/80">
-          Enter a domain or URL to get started
-        </p>
+      <section className="flex items-center gap-2 border-t border-base-300 py-4 text-sm text-base-content/65">
+        <History className="size-4" aria-hidden />
+        No recent backlink searches in this project.
       </section>
     );
   }
@@ -38,7 +36,7 @@ export function BacklinksHistorySection({
         <div className="flex items-center gap-2">
           <History className="size-4 text-base-content/45" />
           <span className="text-sm text-base-content/60">
-            {history.length} recent search{history.length !== 1 ? "es" : ""}
+            {history.length} shared search{history.length !== 1 ? "es" : ""}
           </span>
         </div>
       </div>
@@ -83,7 +81,8 @@ export function BacklinksHistorySection({
               </span>
               <button
                 type="button"
-                className="btn btn-ghost btn-xs opacity-0 group-hover:opacity-100 p-1"
+                className="btn btn-ghost btn-sm px-2 text-base-content/65"
+                aria-label={`Remove ${item.target} from recent searches`}
                 onClick={() => onRemoveHistoryItem(item.timestamp)}
               >
                 <X className="size-3" />

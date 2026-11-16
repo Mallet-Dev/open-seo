@@ -10,8 +10,7 @@ import {
   CopyButton,
 } from "@/client/features/ai-mcp/SetupControls";
 
-const DISCORD_URL = "https://discord.gg/c9uGs3cFXr";
-const SUPPORT_EMAIL = "ben@openseo.so";
+const FEEDBACK_URL = "https://github.com/Mallet-Dev/open-seo/issues";
 const SAM_GITHUB_URL = "https://github.com/every-app/sam";
 const SKILL_NAMES = [
   "seo-project-setup",
@@ -24,11 +23,11 @@ const SKILL_NAMES = [
   "local-seo",
   "seo-audit",
 ];
-const SKILLS_INSTALL = `npx skills add every-app/open-seo`;
-const ALL_SKILLS_INSTALL = `npx skills add every-app/open-seo --skill '*'`;
-const CLAUDE_CODE_SKILLS_INSTALL = `npx skills add every-app/open-seo --skill '*' --agent claude-code`;
-const CODEX_SKILLS_INSTALL = `npx skills add every-app/open-seo --skill '*' --agent codex`;
-const SKILLS_MANUAL_INSTALL = `git clone https://github.com/every-app/open-seo.git
+const SKILLS_INSTALL = `npx skills add Mallet-Dev/open-seo`;
+const ALL_SKILLS_INSTALL = `npx skills add Mallet-Dev/open-seo --skill '*'`;
+const CLAUDE_CODE_SKILLS_INSTALL = `npx skills add Mallet-Dev/open-seo --skill '*' --agent claude-code`;
+const CODEX_SKILLS_INSTALL = `npx skills add Mallet-Dev/open-seo --skill '*' --agent codex`;
+const SKILLS_MANUAL_INSTALL = `git clone https://github.com/Mallet-Dev/open-seo.git
 
 # Codex
 mkdir -p ~/.codex/skills
@@ -44,9 +43,7 @@ export const Route = createFileRoute("/_app/ai")({
 
 function AiPage() {
   const mcpUrl =
-    typeof window === "undefined"
-      ? "https://app.openseo.so/mcp"
-      : `${window.location.origin}/mcp`;
+    typeof window === "undefined" ? "/mcp" : `${window.location.origin}/mcp`;
 
   return (
     <div className="h-full overflow-auto bg-base-100 px-4 py-12 md:px-6 md:py-16 pb-24 md:pb-12">
@@ -345,18 +342,14 @@ function AiPage() {
         </section>
 
         <p className="mt-12 text-xs text-base-content/55 leading-relaxed">
-          Have feedback? Reach out on{" "}
+          Have feedback?{" "}
           <a
             className="link link-primary"
-            href={DISCORD_URL}
+            href={FEEDBACK_URL}
             target="_blank"
             rel="noreferrer"
           >
-            Discord
-          </a>{" "}
-          or email{" "}
-          <a className="link link-primary" href={`mailto:${SUPPORT_EMAIL}`}>
-            {SUPPORT_EMAIL}
+            Open an issue on GitHub
           </a>
           .
         </p>

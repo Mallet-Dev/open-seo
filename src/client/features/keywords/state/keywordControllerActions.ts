@@ -45,6 +45,7 @@ type SaveExportActionParams = {
     },
   ) => void;
   setShowSaveDialog: (show: boolean) => void;
+  resetSaveError: () => void;
 };
 
 export function parseKeywordInput(value: string) {
@@ -98,6 +99,7 @@ export function useSaveAndExportActions(params: SaveExportActionParams) {
     input,
     saveKeywordsMutate,
     setShowSaveDialog,
+    resetSaveError,
   } = params;
 
   const handleSaveKeywords = () => {
@@ -105,6 +107,7 @@ export function useSaveAndExportActions(params: SaveExportActionParams) {
       toast.error("Select at least one keyword first");
       return;
     }
+    resetSaveError();
     setShowSaveDialog(true);
   };
 

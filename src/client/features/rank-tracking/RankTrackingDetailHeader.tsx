@@ -48,7 +48,8 @@ export function RankTrackingDetailHeader({
         <p className="text-xs text-base-content/60">
           {config.locationName
             ? formatLocationLabel(config.locationName, 2)
-            : (LOCATIONS[config.locationCode] ?? "US")}{" "}
+            : (LOCATIONS[config.locationCode] ??
+              `Location ${config.locationCode}`)}{" "}
           &middot; {devicesLabel(config.devices)} &middot;{" "}
           {scheduleLabel(config.scheduleInterval)}
           {run?.lastCheckedAt && (
@@ -58,7 +59,7 @@ export function RankTrackingDetailHeader({
             </>
           )}
           {costEstimate && costEstimate.keywordCount > 0 && (
-            <> &middot; ~${costEstimate.costUsd.toFixed(2)}/check</>
+            <> &middot; ~US${costEstimate.costUsd.toFixed(2)}/check</>
           )}
         </p>
       </div>

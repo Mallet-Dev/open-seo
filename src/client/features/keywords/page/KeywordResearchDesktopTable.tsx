@@ -71,12 +71,18 @@ export function KeywordResearchDesktopTable({
           />
         ),
         cell: ({ row }) => (
-          <span
-            className="block min-w-48 whitespace-normal break-words font-medium capitalize md:min-w-0 md:truncate"
+          <button
+            type="button"
+            className="block max-w-full min-w-48 whitespace-normal break-words text-left font-medium text-primary hover:underline md:min-w-0 md:truncate"
+            aria-label={`Inspect search results for ${row.original.keyword}`}
             title={row.original.keyword}
+            onClick={(event) => {
+              event.stopPropagation();
+              handleRowClick(row.original);
+            }}
           >
             {row.original.keyword}
-          </span>
+          </button>
         ),
         meta: {
           headerClassName: "min-w-48 md:min-w-0",
@@ -148,7 +154,7 @@ export function KeywordResearchDesktopTable({
       keywordColumnHelper.accessor("keywordDifficulty", {
         header: () => (
           <SortHeader
-            label="Score"
+            label="Difficulty"
             helpText="Organic ranking difficulty (0-100): higher means harder to reach Google's top 10."
             field="keywordDifficulty"
             current={sortField}
@@ -169,7 +175,7 @@ export function KeywordResearchDesktopTable({
         },
       }),
     ],
-    [selectAnchorRef, sortDir, sortField, toggleSort],
+    [selectAnchorRef, sortDir, sortField, toggleSort, handleRowClick],
   );
   const table = useAppTable({
     data: filteredRows,

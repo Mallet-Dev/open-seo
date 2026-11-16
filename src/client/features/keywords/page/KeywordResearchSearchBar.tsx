@@ -48,13 +48,22 @@ export function KeywordResearchSearchBar({ controller }: Props) {
                     className="grow min-w-0 resize-none bg-transparent text-sm leading-6 outline-none placeholder:text-base-content/40"
                     rows={rows}
                     placeholder="Enter a keyword"
+                    aria-label="Keywords, one per line"
+                    aria-invalid={Boolean(keywordError)}
+                    aria-describedby={
+                      keywordError ? "keyword-input-error" : undefined
+                    }
                     value={field.state.value}
                     onChange={(event) => field.handleChange(event.target.value)}
                     onKeyDown={(event) => {
                       // Enter submits. Shift+Enter inserts a newline, so
                       // researching several keywords at once means adding a
                       // line per keyword (or pasting newline-separated ones).
-                      if (event.key === "Enter" && !event.shiftKey) {
+                      if (
+                        event.key === "Enter" &&
+                        !event.shiftKey &&
+                        !event.nativeEvent.isComposing
+                      ) {
                         event.preventDefault();
                         void controlsForm.handleSubmit();
                       }
@@ -80,6 +89,7 @@ export function KeywordResearchSearchBar({ controller }: Props) {
               {(field) => (
                 <select
                   className="select select-bordered w-full lg:w-auto lg:shrink-0"
+                  aria-label="Maximum results"
                   value={field.state.value}
                   onChange={(event) => {
                     const next = Number(event.target.value);
@@ -99,6 +109,7 @@ export function KeywordResearchSearchBar({ controller }: Props) {
               {(field) => (
                 <select
                   className="select select-bordered w-full lg:w-auto lg:shrink-0"
+                  aria-label="Research method"
                   value={field.state.value}
                   onChange={(event) =>
                     field.handleChange(normalizeKeywordMode(event.target.value))
@@ -125,7 +136,13 @@ export function KeywordResearchSearchBar({ controller }: Props) {
             const keywordError = getFieldError(field.state.meta.errors);
 
             return keywordError ? (
-              <p className="text-sm text-error">{keywordError}</p>
+              <p
+                id="keyword-input-error"
+                role="alert"
+                className="text-sm text-error"
+              >
+                {keywordError}
+              </p>
             ) : null;
           }}
         </controlsForm.Field>
@@ -145,7 +162,8 @@ export function KeywordResearchSearchBar({ controller }: Props) {
                         }
                       />
                       <span className="text-sm font-medium text-base-content/80">
-                        Clickstream-refined volumes
+                        Clickstream-refined volumes{" "}
+                        <span className="font-normal">(2× credits)</span>
                       </span>
                     </label>
                     <div
@@ -164,7 +182,7 @@ export function KeywordResearchSearchBar({ controller }: Props) {
               >
                 <Info className="mt-0.5 size-4 shrink-0 text-info" />
                 <span>
-                  Keyword data for this country comes from Google Ads — search
+                  Keyword data for this country comes from Google Ads. Search
                   volume, CPC, and trends are available, but difficulty and
                   intent are not.
                 </span>

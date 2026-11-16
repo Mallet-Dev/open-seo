@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
   AlertCircle,
@@ -8,7 +8,7 @@ import {
   Quote,
   TrendingUp,
 } from "lucide-react";
-import { lookupBrand } from "@/serverFunctions/ai-search";
+import { brandOptions } from "./aiSearchQueries";
 import {
   HostedPlanGate,
   type HostedPlanGateState,
@@ -66,7 +66,13 @@ const BRAND_LOOKUP_BULLETS = [
 export function BrandLookupPage(props: Props) {
   return (
     <HostedPlanGate>
-      {(planGate) => <BrandLookupPageInner {...props} planGate={planGate} />}
+      {(planGate) => (
+        <BrandLookupPageInner
+          key={props.projectId}
+          {...props}
+          planGate={planGate}
+        />
+      )}
     </HostedPlanGate>
   );
 }
@@ -116,32 +122,15 @@ function BrandLookupPageInner({
   const scopeDisabledReason =
     query.trim() !== "" && !scopeTarget ? KEYWORD_SCOPE_REASON : undefined;
 
-  const lookupQuery = useQuery({
-    queryKey: [
-      "brand-lookup",
+  const client = useQueryClient();
+  const lookupQuery = useQuery(
+    brandOptions(
       projectId,
       trimmedInitialQuery,
-      competitorKey,
-      initialScope ?? "",
-    ],
-    queryFn: () =>
-      lookupBrand({
-        data: {
-          projectId,
-          query: trimmedInitialQuery,
-          competitors: initialCompetitors,
-          scope: initialScope,
-          locationCode: 2840,
-          languageCode: "en",
-        },
-      }),
-    // Client-side gate is a UX optimization only; the paywall is enforced
-    // server-side (lookupBrand → assertPaidPlan) before any DataForSEO spend,
-    // so a stale free-plan window here just yields a rejected request, not cost.
-    enabled: hasActiveQuery && !planGate.isFreePlan,
-    staleTime: 5 * 60 * 1000,
-    retry: false,
-  });
+      initialCompetitors,
+      initialScope,
+    ),
+  );
 
   const {
     history,
@@ -235,6 +224,9 @@ function BrandLookupPageInner({
       ? toScopeSearchParam(trimmed, selectedScope)
       : undefined;
     onSearchChange(trimmed, competitors, explicitScope);
+    void client.prefetchQuery(
+      brandOptions(projectId, trimmed, competitors, explicitScope),
+    );
   };
 
   // The form inputs are reset whenever the URL `q`/`c` changes — including the
@@ -249,7 +241,7 @@ function BrandLookupPageInner({
     setValidationError(null);
   }, [initialQuery, competitorKey, initialScope]);
 
-  const isLoading = hasActiveQuery && lookupQuery.isPending;
+  const isLoading = hasActiveQuery && lookupQuery.isFetching;
   const errorMessage =
     hasActiveQuery && lookupQuery.isError
       ? getStandardErrorMessage(lookupQuery.error)
@@ -257,14 +249,11 @@ function BrandLookupPageInner({
   const resultData = hasActiveQuery ? lookupQuery.data : undefined;
 
   return (
-    <div className="px-4 py-4 pb-24 overflow-auto md:px-6 md:py-6 md:pb-8">
-      <div className="mx-auto max-w-7xl space-y-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Brand Lookup</h1>
-          <p className="text-sm text-base-content/70">
-            See how AI search cites any brand name or domain.
-          </p>
-        </div>
+    <div className="search-workspace ai-workspace">
+      <div className="space-y-6">
+        <header className="search-workspace-header">
+          <h1>Brand Lookup</h1>
+        </header>
 
         {planGate.isFreePlan ? (
           <AiSearchPaidPlanGate
@@ -323,12 +312,19 @@ function BrandLookupPageInner({
                 <BrandLookupResults result={resultData} projectId={projectId} />
               </>
             ) : !errorMessage ? (
-              <BrandLookupHistorySection
-                projectId={projectId}
-                history={history}
-                historyLoaded={historyLoaded}
-                onRemoveHistoryItem={removeHistoryItem}
-              />
+              hasActiveQuery ? (
+                <p role="status" className="text-sm text-base-content/70">
+                  Lookup ready. Review the estimate and select Look up to
+                  request data.
+                </p>
+              ) : (
+                <BrandLookupHistorySection
+                  projectId={projectId}
+                  history={history}
+                  historyLoaded={historyLoaded}
+                  onRemoveHistoryItem={removeHistoryItem}
+                />
+              )
             ) : null}
           </>
         )}

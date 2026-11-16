@@ -1,3 +1,4 @@
+import { getSafeExternalUrl } from "@/client/components/table/url";
 import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { ExportToSheetsButton } from "@/client/components/table/ExportToSheetsButton";
 import type { SerpResultItem } from "@/types/keywords";
@@ -43,7 +44,7 @@ export function SerpAnalysisCard({
     <div>
       <div className="flex items-center justify-between mb-3">
         <div className="text-xs text-base-content/50">
-          {items.length} organic results
+          {items.length} organic results{keyword ? ` for “${keyword}”` : ""}
         </div>
         <ExportToSheetsButton
           headers={["Rank", "Title", "URL", "Domain"]}
@@ -83,23 +84,59 @@ function SerpAnalysisTable({ items }: { items: SerpResultItem[] }) {
               className="hover:bg-base-200/50"
             >
               <td className="font-mono text-base-content/50 text-xs">
-                {item.rank}
+                {item.rank > 0 ? item.rank : "-"}
               </td>
               <td className="min-w-0 max-w-0">
                 <div className="flex flex-col gap-0.5">
-                  <a
-                    href={item.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-primary hover:underline truncate flex items-center gap-1"
-                    title={item.title}
-                  >
-                    {item.title || item.url}
-                    <ExternalLink className="size-3 shrink-0 opacity-40" />
-                  </a>
-                  <span className="text-xs text-base-content/40 truncate">
+                  {getSafeExternalUrl(item.url) ? (
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-primary hover:underline truncate flex items-center gap-1"
+                      title={item.title}
+                    >
+                      {item.title || item.url}
+                      <ExternalLink className="size-3 shrink-0 opacity-40" />
+                    </a>
+                  ) : (
+                    <span className="font-medium">
+                      {item.title || item.domain || "Page unavailable"}
+                    </span>
+                  )}
+                  <span className="text-xs text-base-content/65 truncate">
                     {item.domain}
                   </span>
+                  <details className="group mt-1 text-xs">
+                    <summary className="w-fit cursor-pointer rounded text-primary hover:underline">
+                      Page evidence
+                    </summary>
+                    <div className="mt-2 space-y-2 border-t border-base-300 py-2">
+                      {item.description && (
+                        <p className="whitespace-normal break-words leading-relaxed">
+                          {item.description}
+                        </p>
+                      )}
+                      <dl className="grid grid-cols-2 gap-2">
+                        {(
+                          [
+                            ["Estimated traffic", item.etv],
+                            ["Referring domains", item.referringDomains],
+                            ["Backlinks", item.backlinks],
+                          ] as const
+                        ).map(([label, value]) => (
+                          <div key={label}>
+                            <dt className="text-base-content/65">{label}</dt>
+                            <dd className="font-medium tabular-nums">
+                              {value == null
+                                ? "Unavailable"
+                                : value.toLocaleString()}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </div>
+                  </details>
                 </div>
               </td>
             </tr>

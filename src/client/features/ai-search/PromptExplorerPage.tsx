@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
   AlertCircle,
@@ -8,7 +8,7 @@ import {
   SearchCheck,
   Sparkles,
 } from "lucide-react";
-import { explorePrompt } from "@/serverFunctions/ai-search";
+import { promptOptions, type PromptDraft } from "./aiSearchQueries";
 import {
   HostedPlanGate,
   type HostedPlanGateState,
@@ -20,24 +20,12 @@ import { PromptExplorerLoadingState } from "@/client/features/ai-search/componen
 import { PromptExplorerHistorySection } from "@/client/features/ai-search/components/PromptExplorerHistorySection";
 import { AiSearchPaidPlanGate } from "@/client/features/ai-search/components/AiSearchPaidPlanGate";
 import { usePromptExplorerSearchHistory } from "@/client/hooks/usePromptExplorerSearchHistory";
-import {
-  PROMPT_EXPLORER_MAX_PROMPT_LENGTH,
-  type PromptExplorerModel,
-  type WebSearchCountryCode,
-} from "@/types/schemas/ai-search";
-
-type PromptExplorerFormValues = {
-  prompt: string;
-  highlightBrand: string;
-  models: PromptExplorerModel[];
-  webSearch: boolean;
-  webSearchCountryCode: WebSearchCountryCode;
-};
+import { PROMPT_EXPLORER_MAX_PROMPT_LENGTH } from "@/types/schemas/ai-search";
 
 type Props = {
   projectId: string;
-  urlState: PromptExplorerFormValues;
-  onSubmit: (values: PromptExplorerFormValues) => void;
+  urlState: PromptDraft;
+  onSubmit: (values: PromptDraft) => void;
 };
 
 const PROMPT_EXPLORER_BULLETS = [
@@ -61,7 +49,13 @@ const PROMPT_EXPLORER_BULLETS = [
 export function PromptExplorerPage(props: Props) {
   return (
     <HostedPlanGate>
-      {(planGate) => <PromptExplorerPageInner {...props} planGate={planGate} />}
+      {(planGate) => (
+        <PromptExplorerPageInner
+          key={JSON.stringify([props.projectId, props.urlState])}
+          {...props}
+          planGate={planGate}
+        />
+      )}
     </HostedPlanGate>
   );
 }
@@ -72,7 +66,7 @@ function PromptExplorerPageInner({
   onSubmit,
   planGate,
 }: Props & { planGate: HostedPlanGateState }) {
-  const [form, setForm] = useState<PromptExplorerFormValues>(urlState);
+  const [form, setForm] = useState<PromptDraft>(urlState);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const {
@@ -85,43 +79,8 @@ function PromptExplorerPageInner({
   const trimmedPrompt = urlState.prompt.trim();
   const hasActivePrompt = trimmedPrompt.length > 0;
 
-  const exploreQuery = useQuery({
-    queryKey: [
-      "prompt-explorer",
-      projectId,
-      trimmedPrompt,
-      urlState.models.toSorted().join(","),
-      urlState.webSearch,
-      urlState.webSearchCountryCode,
-      urlState.highlightBrand.trim(),
-    ],
-    queryFn: () =>
-      explorePrompt({
-        data: {
-          projectId,
-          prompt: trimmedPrompt,
-          models: urlState.models,
-          highlightBrand: urlState.highlightBrand.trim() || undefined,
-          webSearch: urlState.webSearch,
-          webSearchCountryCode: urlState.webSearchCountryCode,
-        },
-      }),
-    // Client-side gate is a UX optimization only; the paywall is enforced
-    // server-side (explorePrompt → assertPaidPlan) before any DataForSEO spend,
-    // so a stale free-plan window here just yields a rejected request, not cost.
-    enabled:
-      hasActivePrompt && urlState.models.length > 0 && !planGate.isFreePlan,
-    staleTime: 5 * 60 * 1000,
-    retry: false,
-  });
-
-  // Sync form to URL state — covers initial mount, browser back/forward, and
-  // cmd+click history navigation (in the originating tab nothing changes; in
-  // a new tab the form mounts populated from the URL).
-  useEffect(() => {
-    setForm(urlState);
-    setValidationError(null);
-  }, [urlState]);
+  const client = useQueryClient();
+  const exploreQuery = useQuery(promptOptions(projectId, urlState));
 
   // Persist successful searches to history. Run on isSuccess so failed
   // requests don't pollute recent searches. The dedup ref prevents repeat
@@ -174,37 +133,37 @@ function PromptExplorerPageInner({
       return;
     }
     setValidationError(null);
-    onSubmit({
+    const submitted = {
       ...form,
+      models: [...new Set(form.models)],
       prompt: trimmed,
       highlightBrand: form.highlightBrand.trim(),
-    });
+    };
+    onSubmit(submitted);
+    void client.prefetchQuery(promptOptions(projectId, submitted));
   };
 
-  const errorMessage = exploreQuery.isError
-    ? getStandardErrorMessage(exploreQuery.error)
-    : null;
-  const isLoading = hasActivePrompt && exploreQuery.isPending;
+  const errorMessage =
+    hasActivePrompt && exploreQuery.isError
+      ? getStandardErrorMessage(exploreQuery.error)
+      : null;
+  const isLoading = hasActivePrompt && exploreQuery.isFetching;
   const resultData = hasActivePrompt ? exploreQuery.data : undefined;
 
-  const updateForm = <K extends keyof PromptExplorerFormValues>(
+  const updateForm = <K extends keyof PromptDraft>(
     key: K,
-    value: PromptExplorerFormValues[K],
+    value: PromptDraft[K],
   ) => {
     setForm((prev) => ({ ...prev, [key]: value }));
     if (validationError) setValidationError(null);
   };
 
   return (
-    <div className="px-4 py-4 pb-24 overflow-auto md:px-6 md:py-6 md:pb-8">
-      <div className="mx-auto max-w-7xl space-y-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Prompt Explorer</h1>
-          <p className="text-sm text-base-content/70">
-            Ask any prompt across ChatGPT, Claude, Gemini, and Perplexity
-            side-by-side.
-          </p>
-        </div>
+    <div className="search-workspace ai-workspace">
+      <div className="space-y-6">
+        <header className="search-workspace-header">
+          <h1>Prompt Explorer</h1>
+        </header>
 
         {planGate.isFreePlan ? (
           <AiSearchPaidPlanGate
@@ -241,7 +200,9 @@ function PromptExplorerPageInner({
             ) : null}
 
             {isLoading ? (
-              <PromptExplorerLoadingState modelCount={form.models.length} />
+              <PromptExplorerLoadingState
+                modelCount={new Set(urlState.models).size}
+              />
             ) : resultData ? (
               <>
                 <div>
@@ -260,12 +221,19 @@ function PromptExplorerPageInner({
                 <PromptExplorerResults result={resultData} />
               </>
             ) : !errorMessage ? (
-              <PromptExplorerHistorySection
-                projectId={projectId}
-                history={history}
-                historyLoaded={historyLoaded}
-                onRemoveHistoryItem={removeHistoryItem}
-              />
+              hasActivePrompt ? (
+                <p role="status" className="text-sm text-base-content/70">
+                  Prompt ready. Run it to request answers from the selected
+                  models.
+                </p>
+              ) : (
+                <PromptExplorerHistorySection
+                  projectId={projectId}
+                  history={history}
+                  historyLoaded={historyLoaded}
+                  onRemoveHistoryItem={removeHistoryItem}
+                />
+              )
             ) : null}
           </>
         )}

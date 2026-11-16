@@ -56,7 +56,10 @@ export function BrandLookupResults({ result, projectId }: Props) {
     return (
       <div className="space-y-3">
         <div className="rounded-lg border border-info/30 bg-info/10 p-4 text-sm">
-          No AI mentions found for <strong>{result.resolvedTarget}</strong>.
+          {result.totalMentions === 0
+            ? "No mentions were reported for"
+            : "No mention count was returned for"}{" "}
+          <strong>{result.resolvedTarget}</strong>.
         </div>
         {erroredPlatforms.length > 0 ? (
           <p className="text-xs text-base-content/60">
@@ -119,9 +122,17 @@ function BrandHeader({ result }: { result: BrandLookupResult }) {
           </span>
         ) : null}
       </div>
-      <p className="text-xs text-base-content/50">
-        Updated {formatRelative(result.fetchedAt)}
-      </p>
+      <time
+        dateTime={result.fetchedAt}
+        className="text-xs text-base-content/70"
+      >
+        Retrieved{" "}
+        {Number.isFinite(Date.parse(result.fetchedAt))
+          ? new Date(result.fetchedAt).toLocaleString(undefined, {
+              timeZoneName: "short",
+            })
+          : "at an unknown time"}
+      </time>
     </section>
   );
 }
@@ -227,7 +238,7 @@ function MentionTrendCard({ result }: { result: BrandLookupResult }) {
     <section className="overflow-hidden rounded-xl border border-base-300 bg-base-100">
       <div className="flex items-center justify-between gap-2 border-b border-base-300 px-4 py-3">
         <h3 className="text-sm font-semibold">
-          Mention trend (last 12 months)
+          Search volume in sampled prompts
         </h3>
         {result.aggregatesAreDomainLevel ? <DomainLevelBadge /> : null}
       </div>
@@ -236,19 +247,4 @@ function MentionTrendCard({ result }: { result: BrandLookupResult }) {
       </div>
     </section>
   );
-}
-
-function formatRelative(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "just now";
-
-  const diffMs = Date.now() - date.getTime();
-  const diffMin = Math.floor(diffMs / 60_000);
-
-  if (diffMin < 1) return "just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  const diffDay = Math.floor(diffHr / 24);
-  return `${diffDay}d ago`;
 }

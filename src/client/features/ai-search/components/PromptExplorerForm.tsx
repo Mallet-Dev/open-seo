@@ -84,10 +84,9 @@ export function PromptExplorerForm({
             maxLength={PROMPT_EXPLORER_MAX_PROMPT_LENGTH + 50}
             onChange={(event) => onPromptChange(event.target.value)}
             aria-invalid={promptOverLimit ? true : undefined}
-            autoFocus
           />
           <div className="flex items-center justify-between text-xs text-base-content/60">
-            <span>What your customers might ask AI.</span>
+            <span />
             <span
               className={`tabular-nums ${promptOverLimit ? "font-medium text-error" : ""}`}
             >
@@ -113,14 +112,20 @@ export function PromptExplorerForm({
               autoComplete="off"
               spellCheck={false}
             />
-            <p className="text-xs text-base-content/60">
-              We&apos;ll flag whether each model mentions this brand.
-            </p>
           </div>
 
           <div className="space-y-1.5">
-            <span className="block text-sm font-medium">Models</span>
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1.5">
+            <span
+              id="prompt-models-label"
+              className="block text-sm font-medium"
+            >
+              Models
+            </span>
+            <div
+              role="group"
+              aria-labelledby="prompt-models-label"
+              className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1.5"
+            >
               {PROMPT_EXPLORER_MODELS.map((model) => {
                 const isActive = form.models.includes(model);
                 return (
@@ -151,9 +156,7 @@ export function PromptExplorerForm({
                 checked={form.webSearch}
                 onChange={(event) => onWebSearchChange(event.target.checked)}
               />
-              <span className="text-sm">
-                Allow web search (more current answers)
-              </span>
+              <span className="text-sm">Allow web search</span>
             </label>
             <select
               id="prompt-explorer-country"
@@ -172,6 +175,9 @@ export function PromptExplorerForm({
               ))}
             </select>
           </div>
+          <p className="text-xs text-base-content/70">
+            Provider charges may apply per selected model.
+          </p>
           <button
             type="submit"
             className="btn btn-primary shrink-0 px-6"

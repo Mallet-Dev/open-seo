@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Check } from "lucide-react";
+import { summarizeAuditCoverage } from "./auditCoverage";
 import { SearchConsoleConnectionCard } from "@/client/features/gsc/SearchConsoleConnectionCard";
 import { AUDIT_ISSUE_TYPES } from "@/shared/audit-issues";
 
@@ -68,7 +68,7 @@ export function GscCard({
           params={{ projectId }}
           className={moreDetailsClass}
         >
-          More details
+          Open search report
         </Link>
       }
     >
@@ -80,7 +80,14 @@ export function GscCard({
         </div>
       ) : reportQuery.isError ? (
         <p className="text-sm text-base-content/60">
-          Couldn&rsquo;t load Search Console data. Try again shortly.
+          Couldn&rsquo;t load Search Console data.{" "}
+          <button
+            type="button"
+            className="link link-primary"
+            onClick={() => void reportQuery.refetch()}
+          >
+            Retry report
+          </button>
         </p>
       ) : report?.connected ? (
         <div className="grid grid-cols-2 gap-3">
@@ -126,14 +133,14 @@ export function AuditHealthCard({
     return (
       <CardShell title="Site audit">
         <EmptyCardBody
-          message="Crawl your site for broken links, missing tags and indexability problems."
+          message="No crawl is saved. Check pages for broken links, missing tags and indexing issues."
           cta={
             <Link
               to="/p/$projectId/audit"
               params={{ projectId }}
               className="btn btn-primary btn-sm"
             >
-              Run an audit
+              Open site audit
             </Link>
           }
         />
@@ -144,30 +151,25 @@ export function AuditHealthCard({
   return (
     <CardShell
       title="Site audit"
-      stamp={`Site audit · ${
-        audit.status === "completed"
-          ? `crawled ${audit.pagesCrawled} pages · ${formatDay(audit.startedAt)}`
-          : audit.status === "running"
-            ? "crawl in progress"
-            : "last crawl failed"
-      }`}
+      stamp={`Started ${formatDay(audit.startedAt)}`}
       action={
         <Link
           to="/p/$projectId/audit"
           params={{ projectId }}
           className={moreDetailsClass}
         >
-          More details
+          Open crawl
         </Link>
       }
     >
-      {audit.topIssues.length === 0 ? (
-        <div className="flex items-center gap-2 text-sm text-base-content/70">
-          <Check className="size-4 text-success" />
-          No issues found — your site looks healthy.
-        </div>
-      ) : (
-        <ul className="space-y-2">
+      <p
+        role={audit.status === "running" ? "status" : undefined}
+        className="text-sm text-base-content/80"
+      >
+        {summarizeAuditCoverage(audit)}
+      </p>
+      {audit.topIssues.length > 0 && (
+        <ul className="mt-3 space-y-2">
           {audit.topIssues.map((issue) => (
             <li
               key={issue.issueType}
@@ -183,7 +185,8 @@ export function AuditHealthCard({
                         : "bg-base-content/30"
                   }`}
                 />
-                <span className="truncate">
+                <span>
+                  <span className="sr-only">{issue.severity}: </span>
                   {issueTitles[issue.issueType] ?? issue.issueType}
                 </span>
               </span>
@@ -206,88 +209,123 @@ export function AuditHealthCard({
 
 export function BacklinkPulseCard({
   projectId,
+  domain,
+  terms,
+  onCheck,
   backlinks,
   refreshing,
+  onRefresh,
+  refreshError,
+  refreshResult,
 }: {
   projectId: string;
+  domain: string;
+  terms: {
+    estimatedChargeUsd: number;
+    estimatedCredits: number | null;
+    nextAttemptAt: string | null;
+  };
+  onCheck: () => void;
   backlinks: DashboardBacklinkSummary | null;
   refreshing: boolean;
+  onRefresh: () => void;
+  refreshError: string | null;
+  refreshResult: DashboardBacklinkSummary | null | undefined;
 }) {
-  if (!backlinks && refreshing) {
-    return (
-      <CardShell title="Backlink pulse" stamp="Taking your first snapshot…">
-        <div className="grid grid-cols-2 gap-3" aria-busy>
-          {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="skeleton h-20" />
-          ))}
-        </div>
-      </CardShell>
-    );
-  }
-
-  if (!backlinks) {
-    return (
-      <CardShell title="Backlink pulse">
-        <p className="text-sm text-base-content/60">
-          We&rsquo;ll snapshot who links to your domain — nothing to set up.
-        </p>
-      </CardShell>
-    );
-  }
-
+  const estimate =
+    terms.estimatedCredits !== null
+      ? `${terms.estimatedCredits.toLocaleString()} ${terms.estimatedCredits === 1 ? "credit" : "credits"}`
+      : terms.estimatedChargeUsd.toLocaleString("en-US", {
+          style: "currency",
+          currency: "USD",
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 6,
+        }) + " USD";
+  const showRefresh = !backlinks || backlinks.stale;
   return (
     <CardShell
-      title="Backlink pulse"
-      stamp={`Backlinks · snapshot ${formatDay(backlinks.capturedAt)}${
-        refreshing ? " · refreshing…" : ""
-      }`}
+      title="Backlink snapshot"
+      stamp={
+        backlinks
+          ? `${backlinks.domain} · ${formatDay(backlinks.capturedAt)}${backlinks.stale ? " · At least 24 hours old" : ""}`
+          : undefined
+      }
       action={
         <Link
           to="/p/$projectId/backlinks"
           params={{ projectId }}
-          search={{ target: backlinks.domain, scope: "domain" }}
+          search={{}}
           className={moreDetailsClass}
         >
-          More details
+          Open backlinks
         </Link>
       }
     >
-      <div className="grid grid-cols-2 gap-3">
-        <Stat
-          label="Ref. domains"
-          value={
-            backlinks.referringDomains === null
-              ? "—"
-              : backlinks.referringDomains.toLocaleString()
-          }
-        />
-        <Stat
-          label="Backlinks"
-          value={
-            backlinks.backlinks === null
-              ? "—"
-              : backlinks.backlinks.toLocaleString()
-          }
-        />
-        <Stat
-          label="New links"
-          value={`▲ ${newLost(backlinks.newBacklinks)}`}
-          tone={
-            backlinks.newBacklinks && backlinks.newBacklinks > 0
-              ? "success"
-              : undefined
-          }
-        />
-        <Stat
-          label="Lost links"
-          value={`▼ ${newLost(backlinks.lostBacklinks)}`}
-          tone={
-            backlinks.lostBacklinks && backlinks.lostBacklinks > 0
-              ? "error"
-              : undefined
-          }
-        />
-      </div>
+      {backlinks ? (
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          <Stat
+            label="Referring domains"
+            value={
+              backlinks.referringDomains?.toLocaleString() ?? "Unavailable"
+            }
+          />
+          <Stat
+            label="Backlinks"
+            value={backlinks.backlinks?.toLocaleString() ?? "Unavailable"}
+          />
+          <Stat label="New links" value={newLost(backlinks.newBacklinks)} />
+          <Stat label="Lost links" value={newLost(backlinks.lostBacklinks)} />
+        </div>
+      ) : (
+        <p className="text-sm text-base-content/75">
+          No snapshot saved for {domain}.
+        </p>
+      )}
+      {showRefresh && (
+        <div className="mt-3 space-y-2">
+          {terms.nextAttemptAt ? (
+            <>
+              <p className="text-xs text-base-content/75">
+                Next request available{" "}
+                {new Date(terms.nextAttemptAt).toLocaleString()}.
+              </p>
+              <button type="button" className="btn btn-sm" onClick={onCheck}>
+                Check availability
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-base-content/75">
+                DataForSEO estimate for {domain}: {estimate}.
+              </p>
+              <button
+                type="button"
+                disabled={refreshing}
+                className="btn btn-sm"
+                onClick={onRefresh}
+              >
+                {refreshing
+                  ? "Requesting snapshot…"
+                  : backlinks
+                    ? "Refresh paid snapshot"
+                    : "Request paid snapshot"}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+      {refreshError && (
+        <p role="alert" className="mt-3 text-sm">
+          {refreshError}
+        </p>
+      )}
+      {!refreshError && !refreshing && refreshResult !== undefined && (
+        <p role="status" className="mt-3 text-sm">
+          {!refreshResult || refreshResult.stale
+            ? "No new snapshot was saved."
+            : "Snapshot available."}
+        </p>
+      )}
     </CardShell>
   );
 }

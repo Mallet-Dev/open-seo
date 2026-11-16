@@ -1,3 +1,5 @@
+import { useRef } from "react";
+import type { KeywordResearchRow } from "@/types/keywords";
 import {
   ChevronDown,
   Download,
@@ -14,7 +16,10 @@ import {
 } from "@/client/features/keywords/state/keywordControllerActions";
 import { exportTableToSheets } from "@/client/lib/exportToSheets";
 import { captureClientEvent } from "@/client/lib/posthog";
-import { SerpAnalysisCard } from "@/client/features/keywords/components";
+import {
+  OverviewStats,
+  SerpAnalysisCard,
+} from "@/client/features/keywords/components";
 import { FilterIntentSelect } from "./keywordResearchFilters";
 import { KeywordResearchDesktopTable } from "./KeywordResearchDesktopTable";
 import {
@@ -34,6 +39,7 @@ type Props = {
 
 export function KeywordResearchMobileResults({ controller }: Props) {
   const { filteredRows, mobileTab } = controller;
+  const serpTab = useRef<HTMLButtonElement>(null);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden md:hidden">
@@ -44,6 +50,7 @@ export function KeywordResearchMobileResults({ controller }: Props) {
               ? "border-primary text-primary"
               : "border-transparent text-base-content/60"
           }`}
+          aria-pressed={mobileTab === "keywords"}
           onClick={() => controller.setMobileTab("keywords")}
         >
           Keywords ({filteredRows.length})
@@ -54,16 +61,29 @@ export function KeywordResearchMobileResults({ controller }: Props) {
               ? "border-primary text-primary"
               : "border-transparent text-base-content/60"
           }`}
+          ref={serpTab}
+          aria-pressed={mobileTab === "serp"}
           onClick={() => controller.setMobileTab("serp")}
         >
           SERP Analysis
         </button>
       </div>
 
-      {mobileTab === "keywords" ? (
-        <MobileKeywordResults controller={controller} />
-      ) : (
-        <div className="flex-1 overflow-y-auto p-4">
+      <div hidden={mobileTab !== "keywords"}>
+        <MobileKeywordResults
+          controller={controller}
+          onInspect={(row) => {
+            controller.handleRowClick(row);
+            controller.setMobileTab("serp");
+            serpTab.current?.focus();
+          }}
+        />
+      </div>
+      {mobileTab === "serp" && (
+        <div className="flex-1 space-y-3 overflow-y-auto py-3">
+          {controller.overviewKeyword && (
+            <OverviewStats keyword={controller.overviewKeyword} />
+          )}
           <SerpAnalysisCard
             items={controller.serpResults}
             keyword={controller.activeSerpKeyword}
@@ -80,7 +100,10 @@ export function KeywordResearchMobileResults({ controller }: Props) {
   );
 }
 
-function MobileKeywordResults({ controller }: Props) {
+function MobileKeywordResults({
+  controller,
+  onInspect,
+}: Props & { onInspect: (row: KeywordResearchRow) => void }) {
   const {
     activeFilterCount,
     filteredRows,
@@ -227,7 +250,7 @@ function MobileKeywordResults({ controller }: Props) {
         sortField={controller.sortField}
         toggleSort={controller.toggleSort}
         resetFilters={controller.resetFilters}
-        handleRowClick={controller.handleRowClick}
+        handleRowClick={onInspect}
       />
       {filteredRows.length > 0 ? (
         <KeywordResearchPagination

@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Clock, Globe, History, Search, X } from "lucide-react";
+import { Clock, Globe, History, X } from "lucide-react";
 import { LOCATIONS } from "@/client/features/keywords/utils";
 import type { KeywordResearchControllerState } from "./types";
 
@@ -71,7 +71,7 @@ function SearchHistoryState({
             <div className="flex items-center gap-2">
               <History className="size-4 text-base-content/45" />
               <span className="text-sm text-base-content/60">
-                {history.length} recent search
+                {history.length} shared search
                 {history.length !== 1 ? "es" : ""}
               </span>
             </div>
@@ -112,7 +112,8 @@ function SearchHistoryState({
                   </span>
                   <button
                     type="button"
-                    className="btn btn-ghost btn-xs opacity-0 group-hover:opacity-100 p-1"
+                    className="btn btn-ghost btn-sm px-2 text-base-content/65"
+                    aria-label={`Remove ${item.keyword} from recent searches`}
                     onClick={() => removeHistoryItem(item.timestamp)}
                   >
                     <X className="size-3" />
@@ -123,15 +124,9 @@ function SearchHistoryState({
           </div>
         </section>
       ) : (
-        <section className="rounded-2xl border border-dashed border-base-300 bg-base-100/70 p-6 text-center text-base-content/50 space-y-3">
-          <Search className="size-10 mx-auto opacity-40" />
-          <p className="text-lg font-medium text-base-content/80">
-            Enter a keyword to get started
-          </p>
-          <p className="text-sm max-w-md mx-auto">
-            Search for any keyword to see volume, difficulty, CPC, and related
-            keyword ideas.
-          </p>
+        <section className="flex items-center gap-2 border-t border-base-300 py-4 text-sm text-base-content/65">
+          <History className="size-4" aria-hidden />
+          No recent keyword searches in this project.
         </section>
       )}
     </div>

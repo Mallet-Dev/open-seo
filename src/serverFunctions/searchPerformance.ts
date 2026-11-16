@@ -1,3 +1,10 @@
+import { z } from "zod";
+import { GscRetainedService } from "@/server/features/gsc/services/GscRetainedService";
+import {
+  retainedImportSchema,
+  retainedReportSchema,
+  retainedNotesSchema,
+} from "@/shared/gsc-retained";
 import { createServerFn } from "@tanstack/react-start";
 import {
   GscNotConnectedError,
@@ -204,3 +211,35 @@ export const exportSearchPerformanceTable = createServerFn({ method: "POST" })
       rows: toDimensionRows(result.rows),
     };
   });
+
+// Retained data never enters the OAuth/live performance path.
+export const getRetainedSearchSource = createServerFn({ method: "POST" })
+  .middleware(requireProjectContext)
+  .validator(z.object({ projectId: z.string().min(1) }))
+  .handler(({ context }) => GscRetainedService.metadata(context));
+
+export const importRetainedSearch = createServerFn({ method: "POST" })
+  .middleware(requireProjectContext)
+  .validator(
+    z.object({ projectId: z.string().min(1), input: retainedImportSchema }),
+  )
+  .handler(({ data, context }) =>
+    GscRetainedService.importData(
+      { ...context, domain: context.project.domain },
+      data.input,
+    ),
+  );
+
+export const getRetainedSearchReport = createServerFn({ method: "POST" })
+  .middleware(requireProjectContext)
+  .validator(retainedReportSchema)
+  .handler(({ data, context }) => GscRetainedService.report(context, data));
+
+export const saveRetainedSearchNotes = createServerFn({ method: "POST" })
+  .middleware(requireProjectContext)
+  .validator(
+    z.object({ projectId: z.string().min(1), input: retainedNotesSchema }),
+  )
+  .handler(({ data, context }) =>
+    GscRetainedService.saveNotes(context, data.input),
+  );

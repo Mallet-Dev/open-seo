@@ -46,6 +46,7 @@ export function DomainSearchCard({
                   <Search className="size-4 text-base-content/60" />
                   <input
                     className="grow min-w-0"
+                    aria-label="Domain or URL"
                     placeholder="Enter a domain or URL"
                     value={field.state.value}
                     onChange={(event) => {
@@ -92,6 +93,7 @@ export function DomainSearchCard({
           <controlsForm.Field name="sort">
             {(field) => (
               <select
+                aria-label="Sort results"
                 className="select select-bordered shrink-0"
                 value={field.state.value}
                 onChange={(event) => {
@@ -103,7 +105,7 @@ export function DomainSearchCard({
                 <option value="rank">By Rank</option>
                 <option value="traffic">By Traffic</option>
                 <option value="volume">By Volume</option>
-                <option value="score">By Score</option>
+                <option value="score">By Difficulty</option>
                 <option value="cpc">By CPC</option>
               </select>
             )}

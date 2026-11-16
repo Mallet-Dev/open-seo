@@ -1,3 +1,4 @@
+import { normalizePageKey } from "@/shared/search-page";
 import { GscService } from "@/server/features/gsc/services/GscService";
 import { GscNotConnectedError } from "@/server/lib/gscErrors";
 import {
@@ -24,13 +25,13 @@ type Candidate = {
   position: number;
   joinStatus: "joined" | "gsc_only";
   ga4: {
-    sessions: number;
-    activeUsers: number;
-    engagedSessions: number;
-    engagementRate: number;
-    keyEvents: number;
-    sessionKeyEventRate: number;
-    transactions: number;
+    sessions: number | null;
+    activeUsers: number | null;
+    engagedSessions: number | null;
+    engagementRate: number | null;
+    keyEvents: number | null;
+    sessionKeyEventRate: number | null;
+    transactions: number | null;
     purchaseRevenue: number | null;
   } | null;
   score: number | null;
@@ -56,32 +57,12 @@ function resolveCombinedDates(
   return resolveGa4DateRange(input, propertyTimeZone, now).resolvedDateRange;
 }
 
-function normalizePageKey(value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed || trimmed === "(not set)") return null;
-  try {
-    const url = new URL(
-      trimmed.includes("://") ? trimmed : `https://${trimmed}`,
-    );
-    let host = url.hostname.toLowerCase();
-    const defaultPort =
-      (url.protocol === "http:" && url.port === "80") ||
-      (url.protocol === "https:" && url.port === "443");
-    if (url.port && !defaultPort) host += `:${url.port}`;
-    let path = url.pathname || "/";
-    if (path.length > 1) path = path.replace(/\/+$/, "");
-    return `${host}${path}`;
-  } catch {
-    return null;
-  }
-}
-
 function numberField(
   row: Record<string, string | number | null>,
   name: string,
-): number {
+): number | null {
   const value = row[name];
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function percentileRanks(values: number[]): number[] {
@@ -207,20 +188,20 @@ async function getOpportunities(
   const engagementFallback =
     joined.length > 0 &&
     joined.every((candidate) => candidate.ga4.keyEvents === 0);
+  const scorable = joined.flatMap((candidate) => {
+    const proxy = engagementFallback
+      ? candidate.ga4.engagementRate
+      : candidate.ga4.sessionKeyEventRate;
+    return proxy === null ? [] : [{ candidate, proxy }];
+  });
   const demand = percentileRanks(
-    joined.map((candidate) => Math.log1p(candidate.impressions)),
+    scorable.map(({ candidate }) => Math.log1p(candidate.impressions)),
   );
-  const businessValue = percentileRanks(
-    joined.map((candidate) =>
-      engagementFallback
-        ? candidate.ga4.engagementRate
-        : candidate.ga4.sessionKeyEventRate,
-    ),
-  );
+  const businessValue = percentileRanks(scorable.map(({ proxy }) => proxy));
   const reachability = percentileRanks(
-    joined.map((candidate) => 20 - candidate.position),
+    scorable.map(({ candidate }) => 20 - candidate.position),
   );
-  joined.forEach((candidate, index) => {
+  scorable.forEach(({ candidate }, index) => {
     const components = {
       demand: roundComponent(demand[index] ?? 0),
       businessValue: roundComponent(businessValue[index] ?? 0),

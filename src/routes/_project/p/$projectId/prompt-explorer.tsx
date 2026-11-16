@@ -1,3 +1,5 @@
+import workspaceStyles from "@/client/components/SearchWorkspace.css?url";
+import aiStyles from "@/client/features/ai-search/AiSearchWorkspace.css?url";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { PromptExplorerPage } from "@/client/features/ai-search/PromptExplorerPage";
 import {
@@ -6,6 +8,12 @@ import {
 } from "@/types/schemas/ai-search";
 
 export const Route = createFileRoute("/_project/p/$projectId/prompt-explorer")({
+  head: () => ({
+    links: [
+      { rel: "stylesheet", href: workspaceStyles },
+      { rel: "stylesheet", href: aiStyles },
+    ],
+  }),
   validateSearch: promptExplorerSearchSchema,
   component: PromptExplorerRoute,
 });

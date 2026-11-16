@@ -90,7 +90,11 @@ export function Ga4Card({
   return (
     <CardShell
       title="Organic traffic"
-      stamp="Google Analytics · last 28 days"
+      stamp={
+        report?.connected
+          ? `Google Analytics · ${report.request.resolvedDateRange.startDate} to ${report.request.resolvedDateRange.endDate} · ${report.request.propertyTimeZone}`
+          : "Google Analytics"
+      }
       action={
         <Link
           to="/p/$projectId/settings"
@@ -102,6 +106,12 @@ export function Ga4Card({
         </Link>
       }
     >
+      {report?.connected && report.reportMetadata.hasLimitedData && (
+        <p className="mb-3 text-sm text-warning" role="status">
+          Google Analytics reports limited data. Some totals or comparisons may
+          be incomplete.
+        </p>
+      )}
       {reportQuery.isPending ? (
         <div className="space-y-3" aria-busy>
           <div className="grid grid-cols-2 gap-3">
@@ -113,14 +123,25 @@ export function Ga4Card({
         </div>
       ) : reportQuery.isError ? (
         <p className="text-sm text-base-content/60">
-          Couldn&rsquo;t load Google Analytics data. Try again shortly.
+          Couldn&rsquo;t load Google Analytics data.{" "}
+          <button
+            type="button"
+            className="link link-primary"
+            onClick={() => void reportQuery.refetch()}
+          >
+            Retry report
+          </button>
         </p>
       ) : report?.connected ? (
         // Covers null (no report row) and 0: a zero-session period would
         // otherwise render an all-zero flatline chart in an empty box.
-        !report.totals.sessions ? (
+        report.totals.sessions === null ? (
           <p className="text-sm text-base-content/60">
-            No organic search traffic recorded in the last 28 days yet.
+            Session data is unavailable for this report.
+          </p>
+        ) : report.totals.sessions === 0 ? (
+          <p className="text-sm text-base-content/60">
+            No organic search sessions recorded in this period.
           </p>
         ) : (
           <div className="space-y-4">
@@ -154,7 +175,7 @@ export function Ga4Card({
                 )}
               />
             </div>
-            <div className="h-24">
+            <div className="h-24" aria-hidden="true">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={report.trend}
@@ -168,6 +189,7 @@ export function Ga4Card({
                   />
                   <Area
                     type="monotone"
+                    isAnimationActive={false}
                     dataKey="sessions"
                     stroke="var(--color-primary)"
                     strokeWidth={2}
@@ -177,6 +199,42 @@ export function Ga4Card({
                 </AreaChart>
               </ResponsiveContainer>
             </div>
+            {report.trend.length > 0 && (
+              <details>
+                <summary className="cursor-pointer text-xs font-medium text-primary">
+                  Daily sessions
+                </summary>
+                <div
+                  className="mt-2 max-h-52 overflow-auto"
+                  tabIndex={0}
+                  role="region"
+                  aria-label="Daily organic search sessions"
+                >
+                  <table className="table table-xs">
+                    <thead>
+                      <tr>
+                        <th scope="col">Date</th>
+                        <th scope="col" className="text-right">
+                          Sessions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {report.trend.map((day) => (
+                        <tr key={day.date}>
+                          <th scope="row">{formatTrendDay(day.date)}</th>
+                          <td className="text-right tabular-nums">
+                            {day.sessions === null
+                              ? "Unavailable"
+                              : formatCount(day.sessions)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            )}
           </div>
         )
       ) : null}

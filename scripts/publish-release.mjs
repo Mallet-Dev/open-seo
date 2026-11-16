@@ -5,6 +5,11 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  releaseBranch,
+  releaseRepository,
+  verifyReleaseTarget,
+} from "./release-target.mjs";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
@@ -44,7 +49,9 @@ const args = [
   "create",
   tag,
   "--repo",
-  "every-app/open-seo",
+  releaseRepository,
+  "--target",
+  releaseBranch,
   "--title",
   tag,
   "--notes-file",
@@ -54,5 +61,11 @@ const args = [
 if (values["dry-run"]) {
   process.stdout.write(`gh ${args.join(" ")}\n`);
 } else {
+  const commit = execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  }).trim();
+  verifyReleaseTarget(releaseRepository, tag, commit);
+  args[args.indexOf("--target") + 1] = commit;
   execFileSync("gh", args, { cwd: repoRoot, stdio: "inherit" });
 }

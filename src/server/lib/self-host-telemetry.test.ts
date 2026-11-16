@@ -123,9 +123,21 @@ describe("maybeSendSelfHostHeartbeat", () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
     vi.stubEnv("AUTH_MODE", "cloudflare_access");
+    vi.stubEnv("OPENSEO_TELEMETRY_ENABLED", "1");
     vi.stubEnv("OPENSEO_TELEMETRY_DISABLED", "");
     vi.stubEnv("DO_NOT_TRACK", "");
   });
+
+  it.each(["", "true", "typo"])(
+    "requires explicit opt-in before touching install data (%j)",
+    async (value) => {
+      vi.stubEnv("OPENSEO_TELEMETRY_ENABLED", value);
+      const harness = createHarness();
+      await runHeartbeat(harness);
+      expect(harness.claimHeartbeat).not.toHaveBeenCalled();
+      expect(harness.sendHeartbeat).not.toHaveBeenCalled();
+    },
+  );
 
   it("does not send in hosted mode", async () => {
     vi.stubEnv("AUTH_MODE", "hosted");

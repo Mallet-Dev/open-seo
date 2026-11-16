@@ -1,7 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { QueryKey } from "@tanstack/react-query";
-import { Loader2, X } from "lucide-react";
+import { LOCATIONS } from "@/client/features/keywords/locations";
+import { RESEARCH_SCOPE_LABELS } from "@/shared/researchScope";
+import { CircleAlert, Loader2, X } from "lucide-react";
 import type { SearchTab } from "./types";
 import {
   KEYWORD_RESEARCH_STALE_TIME_MS,
@@ -37,25 +39,44 @@ export function SearchTabStrip({
   onClose,
   onViewed,
 }: Props) {
+  const stripRef = useRef<HTMLDivElement>(null);
   if (tabs.length === 0) return null;
 
+  const focusTab = (index: number) => {
+    const buttons =
+      stripRef.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    buttons?.item(index)?.focus();
+  };
+  const closeAt = (index: number) => {
+    if (tabs.length > 1)
+      focusTab(index === tabs.length - 1 ? index - 1 : index + 1);
+    else
+      stripRef.current
+        ?.closest("main")
+        ?.querySelector<HTMLElement>("form textarea, form input")
+        ?.focus();
+    onClose(tabs[index].id);
+  };
+
   return (
-    <div className="rounded-xl border border-base-300 bg-base-100 p-1">
+    <div className="min-w-0 border-b border-base-300">
       <div
+        ref={stripRef}
         role="tablist"
         aria-label="Search tabs"
         className="flex min-w-0 items-stretch gap-1 overflow-x-auto"
       >
-        {tabs.map((tab) => {
+        {tabs.map((tab, index) => {
+          const context = getTabContext(tab);
           const active = tab.id === activeTabId;
           return (
             <div
               key={tab.id}
               data-search-tab-id={tab.id}
-              className={`group flex shrink-0 items-stretch overflow-hidden rounded-md text-sm transition ${
+              className={`group flex shrink-0 items-stretch border-b-2 rounded-t-md text-sm transition ${
                 active
-                  ? "bg-base-300 text-base-content shadow-sm"
-                  : "text-base-content/80 hover:bg-base-200"
+                  ? "border-primary bg-primary/10 text-base-content"
+                  : "border-transparent text-base-content/75 hover:bg-base-200"
               }`}
             >
               <button
@@ -63,6 +84,33 @@ export function SearchTabStrip({
                 role="tab"
                 data-search-tab-id={tab.id}
                 aria-selected={active}
+                aria-description={context}
+                tabIndex={active || (!activeTabId && index === 0) ? 0 : -1}
+                onKeyDown={(event) => {
+                  let nextIndex: number;
+                  switch (event.key) {
+                    case "ArrowRight":
+                      nextIndex = (index + 1) % tabs.length;
+                      break;
+                    case "ArrowLeft":
+                      nextIndex = (index + tabs.length - 1) % tabs.length;
+                      break;
+                    case "Home":
+                      nextIndex = 0;
+                      break;
+                    case "End":
+                      nextIndex = tabs.length - 1;
+                      break;
+                    case "Delete":
+                      event.preventDefault();
+                      closeAt(index);
+                      return;
+                    default:
+                      return;
+                  }
+                  event.preventDefault();
+                  focusTab(nextIndex);
+                }}
                 className="flex min-w-0 items-center gap-1.5 px-2.5 py-1.5 text-left"
                 onClick={() => onSelect(tab)}
               >
@@ -72,18 +120,24 @@ export function SearchTabStrip({
                   active={active}
                   onViewed={onViewed}
                 />
-                <span
-                  className="max-w-[10rem] truncate font-medium"
-                  title={tab.label}
-                >
-                  {tab.label}
+                <span className="grid max-w-48 gap-0.5">
+                  <span className="truncate font-semibold" title={tab.label}>
+                    {tab.label}
+                  </span>
+                  <span
+                    aria-hidden
+                    className="truncate text-xs text-base-content/65"
+                    title={context}
+                  >
+                    {context}
+                  </span>
                 </span>
               </button>
               <button
                 type="button"
                 data-search-tab-id={tab.id}
                 className="flex items-center px-1.5 text-base-content/50 opacity-60 transition hover:bg-base-content/10 hover:text-base-content hover:opacity-100 group-hover:opacity-100"
-                onClick={() => onClose(tab.id)}
+                onClick={() => closeAt(index)}
                 aria-label={`Close ${tab.label} tab`}
               >
                 <X className="size-3.5" />
@@ -94,6 +148,17 @@ export function SearchTabStrip({
       </div>
     </div>
   );
+}
+
+function getTabContext({ input }: SearchTab) {
+  if (input.type === "backlinks") return RESEARCH_SCOPE_LABELS[input.scope];
+  const market =
+    input.locationCode == null
+      ? "Project market"
+      : (LOCATIONS[input.locationCode] ?? String(input.locationCode));
+  if (input.type === "domain")
+    return `${market} · ${RESEARCH_SCOPE_LABELS[input.scope]}`;
+  return `${market} · ${input.mode} · ${input.resultLimit}${input.clickstream ? " · clickstream" : ""}`;
 }
 
 function SearchTabStatus({
@@ -149,18 +214,27 @@ function SearchTabStatusIndicator({
 }: {
   status: "idle" | "loading" | "unviewed" | "error";
 }) {
+  if (status === "idle") return null;
+  const label =
+    status === "error"
+      ? "Search failed"
+      : status === "loading"
+        ? "Loading"
+        : "New results";
   return (
     <span
-      className="flex w-3.5 shrink-0 items-center justify-center"
-      aria-hidden
+      className="flex shrink-0 items-center justify-center"
+      role="img"
+      aria-label={label}
+      title={label}
     >
       {status === "loading" ? (
-        <Loader2 className="size-3 animate-spin text-base-content/50" />
+        <Loader2 className="size-3 animate-spin text-base-content/65" />
       ) : status === "error" ? (
-        <span className="size-2 rounded-full bg-error" />
-      ) : status === "unviewed" ? (
+        <CircleAlert className="size-3.5 text-error" />
+      ) : (
         <span className="size-2 rounded-full bg-primary" />
-      ) : null}
+      )}
     </span>
   );
 }

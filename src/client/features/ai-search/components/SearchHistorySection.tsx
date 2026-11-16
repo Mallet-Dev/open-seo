@@ -55,7 +55,7 @@ export function SearchHistorySection<TItem extends { timestamp: number }>({
         <div className="flex items-center gap-2">
           <History className="size-4 text-base-content/45" />
           <span className="text-sm text-base-content/60">
-            {history.length} recent {noun}
+            {history.length} shared recent {noun}
             {history.length !== 1 ? "s" : ""}
           </span>
         </div>

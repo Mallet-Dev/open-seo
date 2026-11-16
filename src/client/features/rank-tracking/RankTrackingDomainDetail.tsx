@@ -92,7 +92,12 @@ export function RankTrackingDomainDetail({
   );
   const [viewMode, setViewMode] = useState<"table" | "history">("table");
 
-  const { data: resultsData, isLoading: resultsLoading } = useQuery({
+  const {
+    data: resultsData,
+    isLoading: resultsLoading,
+    isError: resultsFailed,
+    refetch: reloadResults,
+  } = useQuery({
     queryKey: ["rankTrackingResults", projectId, config.id, comparePeriod],
     queryFn: () =>
       getLatestRankResults({
@@ -282,10 +287,12 @@ export function RankTrackingDomainDetail({
             )
           }
           onCopyKeywords={() => {
-            void navigator.clipboard.writeText(
-              filtered.map((r) => r.keyword).join("\n"),
-            );
-            toast.success("Keywords copied to clipboard");
+            void navigator.clipboard
+              .writeText(filtered.map((r) => r.keyword).join("\n"))
+              .then(() => toast.success("Keywords copied to clipboard"))
+              .catch(() =>
+                toast.error("Could not copy keywords to the clipboard."),
+              );
           }}
           onCheckNow={() => {
             const count = costEstimate?.keywordCount ?? rows?.length ?? 0;
@@ -310,7 +317,21 @@ export function RankTrackingDomainDetail({
 
         {/* Table */}
         <div className="p-4">
-          {effectiveViewMode === "history" ? (
+          {resultsFailed && !resultsData ? (
+            <div
+              role="alert"
+              className="flex flex-wrap items-center gap-3 py-4 text-sm"
+            >
+              Could not load the tracked keywords.
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => void reloadResults()}
+              >
+                Retry
+              </button>
+            </div>
+          ) : effectiveViewMode === "history" ? (
             <RankTrackingHistoryMatrix
               cells={matrixCells ?? []}
               isLoading={matrixLoading}

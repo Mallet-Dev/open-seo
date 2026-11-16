@@ -1,3 +1,5 @@
+import * as sqliteReviews from "./local-reviews.schema";
+import * as pgReviews from "./pg/local-reviews.schema";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getTableColumns, getTableName, is, Table } from "drizzle-orm";
@@ -12,6 +14,8 @@ import * as sqliteAuth from "./better-auth-schema";
 import * as sqliteBilling from "./billing.schema";
 import * as sqliteGa4 from "./ga4.schema";
 import * as sqliteGsc from "./gsc.schema";
+import * as sqliteMaps from "./local-maps.schema";
+import * as pgMaps from "./pg/local-maps.schema";
 import * as sqliteTelemetry from "./telemetry.schema";
 import * as pgApp from "./pg/app.schema";
 import * as pgProjectContext from "./pg/project-context.schema";
@@ -152,6 +156,8 @@ const sqliteAppTables = tablesFrom(
   sqliteGa4,
   sqliteGsc,
   sqliteTelemetry,
+  sqliteMaps,
+  sqliteReviews,
 );
 const pgAppTables = tablesFrom(
   pgApp,
@@ -162,6 +168,8 @@ const pgAppTables = tablesFrom(
   pgGa4,
   pgGsc,
   pgTelemetry,
+  pgMaps,
+  pgReviews,
 );
 const sqliteAuthTables = tablesFrom(sqliteAuth);
 const pgAuthTables = tablesFrom(pgAuth);

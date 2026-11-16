@@ -1,3 +1,5 @@
+import * as sqliteReviews from "./local-reviews.schema";
+import * as pgReviews from "./pg/local-reviews.schema";
 import { getDatabaseProvider } from "./provider";
 import * as sqliteApp from "./app.schema";
 import * as sqliteProjectContext from "./project-context.schema";
@@ -7,6 +9,8 @@ import * as sqliteAuth from "./better-auth-schema";
 import * as sqliteBilling from "./billing.schema";
 import * as sqliteGa4 from "./ga4.schema";
 import * as sqliteGsc from "./gsc.schema";
+import * as sqliteMaps from "./local-maps.schema";
+import * as pgMaps from "./pg/local-maps.schema";
 import * as sqliteTelemetry from "./telemetry.schema";
 import * as pgApp from "./pg/app.schema";
 import * as pgProjectContext from "./pg/project-context.schema";
@@ -36,7 +40,9 @@ type AppSchema = typeof sqliteApp &
   typeof sqliteBilling &
   typeof sqliteGa4 &
   typeof sqliteGsc &
-  typeof sqliteTelemetry;
+  typeof sqliteTelemetry &
+  typeof sqliteMaps &
+  typeof sqliteReviews;
 
 const runtimeSchema =
   getDatabaseProvider() === "postgres"
@@ -50,6 +56,8 @@ const runtimeSchema =
         ...pgGa4,
         ...pgGsc,
         ...pgTelemetry,
+        ...pgMaps,
+        ...pgReviews,
       }
     : {
         ...sqliteApp,
@@ -61,6 +69,8 @@ const runtimeSchema =
         ...sqliteGa4,
         ...sqliteGsc,
         ...sqliteTelemetry,
+        ...sqliteMaps,
+        ...sqliteReviews,
       };
 
 // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- guarded by schema-parity.test.ts
@@ -79,7 +89,9 @@ export const {
   rankSnapshots,
   organizationActivationState,
   projectActivationState,
+  backlinkRefreshAttempts,
   backlinkSnapshots,
+  projectSearchHistory,
   projectContextSections,
   projectCompetitors,
   projectKeyPages,
@@ -100,5 +112,24 @@ export const {
   billingCustomerStatus,
   ga4Connections,
   gscConnections,
+  gscRetainedSources,
+  gscRetainedImports,
+  gscRetainedRows,
+  gscRetainedNotes,
+  gscRetainedTargets,
   telemetryState,
+  businessReviewTasks,
+  businessReviewSnapshots,
+  businessReviewRows,
+  mapsCampaigns,
+  mapsRuns,
+  mapsPoints,
+  mapsResults,
+  mapsScanRequests,
+  mapsScanPoints,
+  mapsSubmissionReceipts,
+  mapsSubmissionCandidates,
+  mapsPointObservations,
+  mapsObservationRows,
+  mapsObservationItemTypes,
 } = schema;

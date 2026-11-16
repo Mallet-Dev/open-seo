@@ -11,7 +11,10 @@ import {
   type DataforseoSections,
 } from "@/server/lib/dataforseo/client";
 
-export { createDataforseoClient } from "@/server/lib/dataforseo/client";
+export {
+  createDataforseoClient,
+  MapsTaskSubmissionError,
+} from "@/server/lib/dataforseo/client";
 
 export {
   fetchKeywordMetricsForList,
@@ -72,3 +75,8 @@ export type {
   DomainPageSummaryItem,
   BacklinksHistoryItem,
 } from "@/server/lib/dataforseo/backlinks";
+
+export const fetchMapsTaskResult: DataforseoSections["fetchMapsTaskResult"] =
+  async (input) => (await loadDataforseoSections()).fetchMapsTaskResult(input);
+
+export type { MapsTaskOutcome, PostedMapsTask } from "./maps-tasks";

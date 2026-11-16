@@ -148,6 +148,76 @@
       "when": 1787099999115,
       "tag": "0020_project_memory",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791393037099,
+      "tag": "0021_known_energizer",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1794732014274,
+      "tag": "0022_retained_gsc",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794736736800,
+      "tag": "0023_maps_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794750526563,
+      "tag": "0024_business_review_tasks",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1794751063297,
+      "tag": "0025_business_review_snapshots",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1794752101008,
+      "tag": "0026_business_review_approval",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1794783810331,
+      "tag": "0027_maps_scan_admission",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1794786148928,
+      "tag": "0028_maps_collection_evidence",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1794789732482,
+      "tag": "0029_maps_collected_runs",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1794803845838,
+      "tag": "0030_backlink_refresh_attempt",
+      "breakpoints": true
     }
   ]
 }

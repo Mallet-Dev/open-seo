@@ -8,7 +8,6 @@ import {
   ONBOARDING_LAST_STEP,
   type OnboardingAnswers,
   SOURCE_OPTIONS,
-  SOURCE_OPTIONS_HIDDEN_ON_MOBILE,
   WORK_FOR_OPTIONS,
 } from "@/client/features/onboarding/onboardingModel";
 import { SearchConsoleOnboardingStep } from "@/client/features/onboarding/SearchConsoleOnboardingStep";
@@ -73,9 +72,9 @@ export function PostSignupOnboarding({
               ? `Welcome to OpenSEO, ${firstName}!`
               : "Welcome to OpenSEO!")}
         </h1>
-        <p className="text-sm text-base-content/60">
-          {helperText ?? "A few quick answers to set things up."}
-        </p>
+        {helperText && (
+          <p className="text-sm text-base-content/70">{helperText}</p>
+        )}
       </div>
 
       <div className="rounded-lg border border-base-300 bg-base-100 p-5 shadow-sm">
@@ -122,7 +121,6 @@ export function PostSignupOnboarding({
             onToggle={(source) => updateAnswers({ source })}
             otherValue={answers.sourceOther}
             onOtherChange={(sourceOther) => updateAnswers({ sourceOther })}
-            hiddenOnMobile={[...SOURCE_OPTIONS_HIDDEN_ON_MOBILE]}
           />
         ) : (
           <SearchConsoleOnboardingStep />
@@ -185,7 +183,6 @@ function OnboardingChoiceGroup({
   multiple = false,
   maxSelections,
   followUp,
-  hiddenOnMobile,
 }: {
   title: string;
   description?: string;
@@ -196,7 +193,6 @@ function OnboardingChoiceGroup({
   onOtherChange: (value: string) => void;
   multiple?: boolean;
   maxSelections?: number;
-  hiddenOnMobile?: string[];
   followUp?: {
     showForValue: string;
     label: string;
@@ -226,16 +222,14 @@ function OnboardingChoiceGroup({
           const disabled = atLimit && !selected;
           const showFollowUpHere =
             showFollowUp && followUp?.showForValue === option;
-          // Selected options stay visible so a restored answer never vanishes.
-          const mobileHidden = hiddenOnMobile?.includes(option) && !selected;
 
           return (
             <Fragment key={option}>
               <button
                 type="button"
-                className={`${mobileHidden ? "hidden sm:flex" : "flex"} min-h-11 items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                className={`flex min-h-11 items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
                   selected
-                    ? "border-base-content bg-base-200 text-base-content"
+                    ? "border-primary bg-primary/5 text-base-content"
                     : disabled
                       ? "border-base-300 text-base-content/35 cursor-not-allowed"
                       : "border-base-300 text-base-content/75 hover:border-base-content/40 hover:bg-base-200/60"
@@ -264,7 +258,7 @@ function OnboardingChoiceGroup({
                           type="button"
                           className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
                             followUpSelected
-                              ? "border-base-content bg-base-200 text-base-content"
+                              ? "border-primary bg-primary/5 text-base-content"
                               : "border-base-300 text-base-content/75 hover:border-base-content/40 hover:bg-base-200/60"
                           }`}
                           aria-pressed={followUpSelected}
@@ -290,6 +284,7 @@ function OnboardingChoiceGroup({
         <input
           type="text"
           className="input input-bordered w-full"
+          aria-label="Describe your other answer"
           placeholder={multiple ? "Tell us what else..." : "Tell us more..."}
           value={otherValue}
           onChange={(event) => onOtherChange(event.target.value)}

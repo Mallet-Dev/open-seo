@@ -8,6 +8,7 @@ import {
   real,
   serial,
   text,
+  primaryKey,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { organization, user } from "./better-auth-schema";
@@ -379,8 +380,20 @@ export const projectActivationState = pgTable("project_activation_state", {
   updatedAt: timestampColumn("updated_at").notNull().default(isoNow),
 });
 
+export const backlinkRefreshAttempts = pgTable(
+  "backlink_refresh_attempts",
+  {
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    domain: text("domain").notNull(),
+    attemptedAt: text("attempted_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.projectId, table.domain] })],
+);
+
 // Point-in-time backlink profile summaries for the project's own domain,
-// written by the dashboard's visit-triggered refresh. DataForSEO's summary
+// written by the dashboard's confirmed refresh. DataForSEO's summary
 // already carries new/lost counts, so one snapshot renders a full card;
 // rows accumulate into history for future trend views. The domain is stored
 // per row so a later project-domain change doesn't rewrite history.
@@ -406,6 +419,33 @@ export const backlinkSnapshots = pgTable(
     index("backlink_snapshots_project_captured_idx").on(
       table.projectId,
       table.capturedAt,
+    ),
+  ],
+);
+
+// Recent searches are shared by everyone with access to the project.
+export const projectSearchHistory = pgTable(
+  "project_search_history",
+  {
+    id: text("id").primaryKey(),
+    projectId: text("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    feature: text("feature").notNull(),
+    searchKey: text("search_key").notNull(),
+    itemJson: text("item_json").notNull(),
+    searchedAt: bigint("searched_at", { mode: "number" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("project_search_history_unique").on(
+      table.projectId,
+      table.feature,
+      table.searchKey,
+    ),
+    index("project_search_history_recent_idx").on(
+      table.projectId,
+      table.feature,
+      table.searchedAt,
     ),
   ],
 );

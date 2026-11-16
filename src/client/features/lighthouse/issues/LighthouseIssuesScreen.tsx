@@ -76,10 +76,6 @@ export function LighthouseIssuesScreen(props: LighthouseIssuesScreenProps) {
   );
   const showsLegacyPayloadNotice =
     issuesQuery.data != null && !issuesQuery.data.hasIssueDetails;
-  const emptyMessage = showsLegacyPayloadNotice
-    ? "This audit was saved without issue-level Lighthouse details. Re-run the audit to populate this screen."
-    : undefined;
-
   return (
     <div className="px-4 py-3 md:px-6 md:py-4 pb-24 md:pb-8 overflow-auto">
       <div className="mx-auto max-w-5xl space-y-4">
@@ -90,7 +86,9 @@ export function LighthouseIssuesScreen(props: LighthouseIssuesScreenProps) {
           finalUrl={issuesQuery.data?.finalUrl}
           scores={issuesQuery.data?.scores}
           metrics={issuesQuery.data?.metrics}
-          severityCounts={severityCounts}
+          severityCounts={
+            issuesQuery.data?.hasIssueDetails ? severityCounts : undefined
+          }
         />
 
         <div className="card bg-base-100 border border-base-300">
@@ -99,6 +97,13 @@ export function LighthouseIssuesScreen(props: LighthouseIssuesScreenProps) {
               <div className="alert alert-error">
                 <AlertCircle className="size-4" />
                 <span>{issuesErrorMessage}</span>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => void issuesQuery.refetch()}
+                >
+                  Retry
+                </button>
               </div>
             ) : null}
 
@@ -113,28 +118,33 @@ export function LighthouseIssuesScreen(props: LighthouseIssuesScreenProps) {
               </div>
             ) : null}
 
-            <LighthouseIssuesToolbar
-              category={category}
-              categoryCounts={categoryCounts}
-              selectedCategoryLabel={selectedCategoryLabel}
-              isBusy={exportMutation.isPending}
-              visibleIssues={visibleIssues}
-              allIssues={allIssues}
-              onCategoryChange={onCategoryChange}
-              onCopy={(data, message) => {
-                void runCopy(data, message);
-              }}
-              onExport={(data) => {
-                void runExport(data);
-              }}
-              onExportCsv={runExportCsv}
-              onExportSheets={runExportSheets}
-            />
-            <LighthouseIssueList
-              issues={visibleIssues}
-              isLoading={issuesQuery.isLoading}
-              emptyMessage={emptyMessage}
-            />
+            {issuesQuery.data && (
+              <LighthouseIssuesToolbar
+                hasIssueDetails={issuesQuery.data.hasIssueDetails}
+                category={category}
+                categoryCounts={categoryCounts}
+                selectedCategoryLabel={selectedCategoryLabel}
+                isBusy={exportMutation.isPending}
+                visibleIssues={visibleIssues}
+                allIssues={allIssues}
+                onCategoryChange={onCategoryChange}
+                onCopy={(data, message) => {
+                  void runCopy(data, message);
+                }}
+                onExport={(data) => {
+                  void runExport(data);
+                }}
+                onExportCsv={runExportCsv}
+                onExportSheets={runExportSheets}
+              />
+            )}
+            {(issuesQuery.data || !issuesQuery.isError) &&
+              !showsLegacyPayloadNotice && (
+                <LighthouseIssueList
+                  issues={visibleIssues}
+                  isLoading={issuesQuery.isLoading}
+                />
+              )}
           </div>
         </div>
       </div>

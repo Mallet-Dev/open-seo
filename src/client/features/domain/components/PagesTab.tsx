@@ -266,6 +266,8 @@ export function PagesTab({
         }
       >
         <DomainPagesTable
+          projectId={projectId}
+          locationCode={routeState.locationCode}
           domain={hostname}
           rows={rows}
           sortMode={routeState.sort}

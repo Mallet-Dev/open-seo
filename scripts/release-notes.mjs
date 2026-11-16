@@ -7,6 +7,7 @@ import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { parseArgs } from "node:util";
+import { releaseRepository, verifyReleaseTarget } from "./release-target.mjs";
 
 const argv = process.argv.slice(2);
 const normalizedArgv = argv[0] === "--" ? argv.slice(1) : argv;
@@ -25,7 +26,7 @@ const { values } = parseArgs({
 
 if (values.help) {
   process.stdout.write(
-    `Usage: pnpm release:notes -- [options]\n\nOptions:\n  --from <tag>     Starting git tag. Defaults to latest semver tag.\n  --to <ref>       Ending git ref. Defaults to main for the public repo, otherwise HEAD.\n  --draft <tag>    Create a draft GitHub release for the provided tag.\n  --repo <owner/repo>  Override GitHub repo slug for compare links and draft release.\n  -h, --help       Show this help message.\n`,
+    `Usage: pnpm release:notes -- [options]\n\nOptions:\n  --from <tag>     Starting git tag. Defaults to latest semver tag.\n  --to <ref>       Ending git ref. Defaults to the checked-out commit.\n  --draft <tag>    Create a draft GitHub release for the provided tag.\n  --repo <owner/repo>  Override GitHub repo slug for compare links and draft release.\n  -h, --help       Show this help message.\n`,
   );
   process.exit(0);
 }
@@ -41,17 +42,6 @@ function gh(args) {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
   }).trim();
-}
-
-/** @param {string} remoteName */
-function getRemoteRepo(remoteName) {
-  try {
-    const remote = git(["remote", "get-url", remoteName]);
-    const match = remote.match(/github\.com[:/]([^/]+\/[^/.]+)(?:\.git)?$/);
-    return match?.[1];
-  } catch {
-    return undefined;
-  }
 }
 
 function getLatestSemverTag() {
@@ -166,15 +156,6 @@ function getDefaultFromTag() {
   return getLatestSemverTag();
 }
 
-function getPreferredRepo() {
-  return getRemoteRepo("public") ?? getRemoteRepo("origin");
-}
-
-/** @param {string | undefined} repo */
-function getDefaultToRef(repo) {
-  return repo === "every-app/open-seo" ? "main" : "HEAD";
-}
-
 /** @param {readonly string[]} rangeArgs */
 function getCommitSubjects(rangeArgs) {
   const output = git([
@@ -280,8 +261,8 @@ function buildNotes({ from, to, repo }) {
 }
 
 const from = values.from ?? getDefaultFromTag();
-const repo = values.repo ?? getPreferredRepo();
-const to = values.to ?? getDefaultToRef(repo);
+const repo = values.repo ?? releaseRepository;
+const to = values.to ?? git(["rev-parse", "HEAD"]);
 const notes = buildNotes({ from, to, repo });
 
 process.stdout.write(`${notes}\n`);
@@ -289,6 +270,13 @@ process.stdout.write(`${notes}\n`);
 if (values.draft) {
   const tag = values.draft;
   const releaseTitle = tag.startsWith("v") ? tag : `v${tag}`;
+  const commit = git([
+    "rev-parse",
+    "--verify",
+    "--end-of-options",
+    `${to}^{commit}`,
+  ]);
+  verifyReleaseTarget(repo, releaseTitle, commit);
   const tmpFile = path.join(
     os.tmpdir(),
     `quick-eagle-release-notes-${Date.now()}.md`,
@@ -300,6 +288,8 @@ if (values.draft) {
     "create",
     releaseTitle,
     "--draft",
+    "--target",
+    commit,
     "--title",
     releaseTitle,
     "--notes-file",

@@ -198,6 +198,54 @@ describe("SearchOpportunityService", () => {
     });
   });
 
+  it("preserves restricted metrics as unknown and does not score an unavailable proxy", async () => {
+    mocks.getPerformance.mockResolvedValue({
+      siteUrl: "https://example.com/",
+      request: {},
+      rows: [
+        {
+          keys: ["https://example.com/other"],
+          clicks: 1,
+          impressions: 100,
+          ctr: 0.01,
+          position: 10,
+        },
+      ],
+    });
+    mocks.runGa4Report.mockResolvedValue({
+      ...ga4Result,
+      rows: [
+        {
+          ...ga4Result.rows[1],
+          sessions: null,
+          keyEvents: null,
+          sessionKeyEventRate: null,
+        },
+      ],
+      reportMetadata: {
+        ...ga4Result.reportMetadata,
+        hasLimitedData: true,
+        restrictedMetrics: [
+          { metricName: "keyEvents", restrictedMetricTypes: ["REVENUE_DATA"] },
+        ],
+      },
+    });
+    const result = await SearchOpportunityService.getOpportunities({
+      projectId: "project_1",
+    });
+    expect(result.rows[0]).toMatchObject({
+      joinStatus: "joined",
+      ga4: { sessions: null, keyEvents: null, sessionKeyEventRate: null },
+      score: null,
+      scoreComponents: null,
+    });
+    expect(result.scoring).toMatchObject({
+      engagementFallback: false,
+      scoreDataLimited: true,
+    });
+    expect(result.coverage.matchedRows).toBe(1);
+  });
+
   it("anchors the shared default range to the GA4 property date", async () => {
     mocks.getGa4Connection.mockResolvedValue({
       propertyTimeZone: "America/Los_Angeles",

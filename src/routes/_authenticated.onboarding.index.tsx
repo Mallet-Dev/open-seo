@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { toast } from "sonner";
 import { OnboardingAccountMenu } from "@/client/features/onboarding/OnboardingAccountMenu";
 import { PostSignupOnboarding } from "@/client/features/onboarding/PostSignupOnboarding";
 import {
@@ -91,6 +92,7 @@ function OnboardingFlow({
       }),
     onError: (error) => {
       console.error("Failed to save onboarding answers", error);
+      toast.error("Your answers could not be saved. Please try again.");
     },
   });
 
@@ -121,7 +123,7 @@ function OnboardingFlow({
       // sees the completed state and doesn't bounce the user back here.
       await queryClient.invalidateQueries({ queryKey: ["onboardingAnswers"] });
     } catch {
-      // Already logged by the mutation's onError; still navigate the user on.
+      return;
     }
     captureClientEvent("onboarding:completed", {
       interests: answers.selectedInterests,
@@ -137,9 +139,7 @@ function OnboardingFlow({
       firstName={firstName}
       title={isExistingUser ? "Tell us about your work" : undefined}
       helperText={
-        isExistingUser
-          ? "A little context helps us decide where to focus. You can also reach me anytime at ben@openseo.so."
-          : undefined
+        isExistingUser ? "Choose the work you want to focus on." : undefined
       }
       step={step}
       answers={answers}
