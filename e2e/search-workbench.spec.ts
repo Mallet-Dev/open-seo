@@ -51,7 +51,7 @@ test.describe("Search workbench outcomes", () => {
     await expect(evidence).toContainText("Point 3.4");
     await page.keyboard.press("ArrowLeft");
     await expect(centre).toBeFocused();
-    await expect(evidence).toHaveText(pointerEvidence);
+    await expect(evidence).toHaveText(pointerEvidence, { useInnerText: true });
     await expect(grid.locator('button[tabindex="0"]')).toHaveCount(1);
     expect(tileRequests).toEqual([]);
   });
