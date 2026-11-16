@@ -245,7 +245,10 @@ try {
         "playwright.log",
         testEnv,
       ),
-    );
+    ).catch(async (error: unknown) => {
+      console.error(await readFile(join(state, "playwright.log"), "utf8"));
+      throw error;
+    });
   }
 } catch (error) {
   failure = error;
