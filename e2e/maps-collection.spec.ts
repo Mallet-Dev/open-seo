@@ -228,7 +228,11 @@ test.describe("Controlled Maps collection", () => {
     await expect.poll(async () => (await metrics(request)).held).toBe(1);
     await page.getByRole("link", { name: "Dashboard", exact: true }).click();
     await expect(
-      page.getByRole("heading", { name: "Dashboard", exact: true }),
+      page.getByRole("heading", {
+        level: 1,
+        name: "Project overview",
+        exact: true,
+      }),
     ).toBeVisible();
     await control(request, "release");
     await expect
