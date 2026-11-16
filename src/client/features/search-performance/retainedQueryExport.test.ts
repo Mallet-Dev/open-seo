@@ -13,6 +13,7 @@ it("carries the filtered order, comparison window and source revision into the C
     previousPosition: null,
     dominantPage: "https://example.test/tile",
     daysObserved: 1,
+    segments: [],
     pageCount: 1,
     label: null,
   };
@@ -23,7 +24,10 @@ it("carries the filtered order, comparison window and source revision into the C
       previousStart: "2026-10-02",
       previousEnd: "2026-10-31",
     },
-    [{ ...row, query: "tile installation" }, row],
+    [
+      { ...row, query: "tile installation" },
+      { ...row, daysObserved: 0, impressions: 0 },
+    ],
     { startDate: "2026-11-01", endDate: "2026-11-30" },
     { device: "MOBILE", country: "CAN", trackedOnly: true, notesRevision: 2 },
     "tile",
@@ -33,6 +37,7 @@ it("carries the filtered order, comparison window and source revision into the C
   });
   expect(errors).toEqual([]);
   expect(data.map((item) => item.Query)).toEqual(["tile installation", "tile"]);
+  expect(data[1]).toMatchObject({ Clicks: "", Impressions: "" });
   expect(data[0]).toMatchObject({
     Clicks: "0",
     Position: "",

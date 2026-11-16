@@ -39,8 +39,8 @@ export function retainedQueryCsv(
     ],
     rows.map((row) => [
       row.query,
-      row.impressions,
-      row.clicks,
+      row.daysObserved ? row.impressions : null,
+      row.daysObserved ? row.clicks : null,
       row.position,
       row.previousPosition,
       row.improvement,

@@ -22,6 +22,7 @@ import {
   retainedQueryCsv,
   type RetainedExportFilters,
 } from "./retainedQueryExport";
+import { RetainedQueryEvidence } from "./RetainedQueryEvidence";
 import type { Report } from "./RetainedSearchPerformance";
 type Query = Report["queries"][number];
 const number = new Intl.NumberFormat("en-CA");
@@ -50,6 +51,7 @@ export function RetainedSearchReport({
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
   const [search, setSearch] = useState("");
+  const [targetCountry, setTargetCountry] = useState("");
   const queryTrigger = useRef<HTMLButtonElement | null>(null);
   const querySearch = useRef<HTMLInputElement | null>(null);
   const rows = useMemo(
@@ -98,7 +100,9 @@ export function RetainedSearchReport({
               ? row.original.improvement === null
                 ? "—"
                 : `${row.original.improvement > 0 ? "+" : ""}${row.original.improvement.toFixed(1)}`
-              : number.format(row.original[key]),
+              : row.original.daysObserved
+                ? number.format(row.original[key])
+                : "Unknown",
         meta: {
           headerClassName: "text-right",
           cellClassName: "text-right tabular-nums",
@@ -301,39 +305,22 @@ export function RetainedSearchReport({
               Observed on {detail.daysObserved} days across {detail.pageCount}{" "}
               URLs.
             </p>
-            {detail.dominantPage ? (
-              <SafeExternalLink
-                url={detail.dominantPage}
-                label={detail.dominantPage}
-                className="mt-3 inline-flex max-w-full items-center gap-2 break-all text-sm text-primary hover:underline"
+            {range && (
+              <RetainedQueryEvidence
+                query={detail}
+                countries={report.countries}
+                countryFilter={filters.country}
+                targetCountry={targetCountry}
+                onTargetChange={setTargetCountry}
               />
-            ) : null}
-            {detail.dominantPage && range && (
-              <Link
-                className="maps-action maps-action-secondary mt-4 text-xs"
-                to="/p/$projectId/performance"
-                params={{ projectId }}
-                search={{
-                  page: detail.dominantPage,
-                  startDate: range.startDate,
-                  endDate: range.endDate,
-                }}
-              >
-                Landing-page outcomes
-              </Link>
             )}
-            {detail.dominantPage &&
-              range &&
-              (filters.country !== "ALL" || filters.device !== "ALL") && (
-                <p className="retained-context-pending">
-                  Landing-page outcomes use all devices and countries for the
-                  selected page and period.
-                </p>
-              )}
-            {detail.dominantPage && !range && (
-              <p role="status" className="retained-context-pending">
-                Updating the report before opening outcomes…
-              </p>
+            {detail.dominantPage && (
+              <LandingPageAnalytics
+                page={detail.dominantPage}
+                range={range}
+                projectId={projectId}
+                filtered={filters.country !== "ALL" || filters.device !== "ALL"}
+              />
             )}
           </section>
         ) : null}
@@ -350,6 +337,48 @@ export function RetainedSearchReport({
     </div>
   );
 }
+function LandingPageAnalytics({
+  page,
+  range,
+  projectId,
+  filtered,
+}: {
+  page: string;
+  range: { startDate: string; endDate: string } | null;
+  projectId: string;
+  filtered: boolean;
+}) {
+  return (
+    <>
+      <SafeExternalLink
+        url={page}
+        label={page}
+        className="mt-3 inline-flex max-w-full items-center gap-2 break-all text-sm text-primary hover:underline"
+      />
+      {range ? (
+        <Link
+          className="maps-action maps-action-secondary mt-4 text-xs"
+          to="/p/$projectId/performance"
+          params={{ projectId }}
+          search={{ page, ...range }}
+        >
+          View landing-page analytics
+        </Link>
+      ) : (
+        <p role="status" className="retained-context-pending">
+          Updating the report before opening outcomes…
+        </p>
+      )}
+      {range && filtered && (
+        <p className="retained-context-pending">
+          Landing-page outcomes use all devices and countries for the selected
+          page and period.
+        </p>
+      )}
+    </>
+  );
+}
+
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>

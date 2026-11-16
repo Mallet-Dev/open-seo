@@ -195,6 +195,28 @@ function totals(rows: RetainedRow[]) {
   };
 }
 
+function observedSegments(rows: RetainedRow[]) {
+  const groups = new Map<string, RetainedRow[]>();
+  for (const row of rows) {
+    const key = `${row.country}:${row.device}`;
+    const group = groups.get(key);
+    if (group) group.push(row);
+    else groups.set(key, [row]);
+  }
+  return [...groups.values()]
+    .map((group) => {
+      const { country, device } = group[0];
+      const { impressions, position } = totals(group);
+      return { country, device, impressions, position };
+    })
+    .toSorted(
+      (a, b) =>
+        b.impressions - a.impressions ||
+        a.country.localeCompare(b.country) ||
+        a.device.localeCompare(b.device),
+    );
+}
+
 export function retainedReport(
   rows: RetainedRow[],
   input: RetainedReportInput,
@@ -242,6 +264,7 @@ export function retainedReport(
       return {
         query,
         ...metrics,
+        segments: observedSegments(now),
         previousPosition: before.position,
         improvement:
           metrics.position !== null && before.position !== null
